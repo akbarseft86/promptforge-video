@@ -420,6 +420,14 @@ export function generateUniversalProject(
       reason:
         "Captions were requested but no transcript has been locked yet, so the dialogue is not known at prompt-generation time.",
       transcribe_from: "source_audio",
+      preserve_original_language: true,
+      preserve_filler_words: true,
+      preserve_repeated_words: true,
+      preserve_slang_and_dialect: true,
+      allow_grammar_correction: false,
+      verify_against_audio: true,
+      omit_unclear_audio: true,
+      sync_tolerance_seconds: 0.1,
     };
   }
   if (preset.visual_effects?.length) {

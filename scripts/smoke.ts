@@ -117,12 +117,26 @@ assert(
 );
 const ntPrompt = generateHumanPrompt(noTranscript);
 assert(
-  ntPrompt.includes("transcribe the spoken audio of this source video yourself"),
+  ntPrompt.includes("THE ON-SCREEN TEXT MUST MATCH THE SPOKEN AUDIO EXACTLY"),
+  "prompt leads with the audio-match requirement"
+);
+assert(
+  ntPrompt.includes("TRANSCRIBE what is actually spoken, word for word"),
   "prompt orders the model to transcribe from audio"
 );
 assert(
-  ntPrompt.includes("Do NOT invent dialogue."),
-  "prompt forbids inventing dialogue"
+  ntPrompt.includes("VERIFY before rendering"),
+  "prompt requires re-checking the transcription against the audio"
+);
+assert(
+  /1\..*\n2\..*\n3\./s.test(ntPrompt),
+  "protocol steps are sequentially numbered"
+);
+assert(
+  ntPrompt.includes("Do NOT invent dialogue.") &&
+    ntPrompt.includes("Do NOT omit any word that IS spoken.") &&
+    ntPrompt.includes("Do NOT duplicate a word that is spoken only once."),
+  "prompt forbids inventing, omitting, and duplicating words"
 );
 assert(
   !ntPrompt.includes("perfect word-for-word transcription of the speaker's dialogue"),
@@ -170,6 +184,13 @@ for (const section of [
 ]) {
   assert(human.includes(section), `prompt contains "${section.slice(0, 40)}"`);
 }
+
+// Locked-transcript path must also demand a verbatim self-check.
+assert(
+  human.includes("single source of truth for every on-screen word") &&
+    human.includes("same words, same order, same count"),
+  "locked-transcript prompt demands an exact verbatim self-check"
+);
 
 // Faithfulness: a disabled module must not appear in the prompt.
 const noMusic = structuredClone(project);

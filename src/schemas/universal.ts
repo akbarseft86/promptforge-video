@@ -240,6 +240,14 @@ export const TranscriptionRequirementSchema = z.object({
   required: z.literal(true),
   reason: z.string(),
   transcribe_from: z.literal("source_audio"),
+  preserve_original_language: z.boolean(),
+  preserve_filler_words: z.boolean(),
+  preserve_repeated_words: z.boolean(),
+  preserve_slang_and_dialect: z.boolean(),
+  allow_grammar_correction: z.boolean(),
+  verify_against_audio: z.boolean(),
+  omit_unclear_audio: z.boolean(),
+  sync_tolerance_seconds: z.number().positive(),
 });
 
 export const AnalysisSchema = z

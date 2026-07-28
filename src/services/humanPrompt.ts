@@ -145,6 +145,13 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
           ? "LOCKED TRANSCRIPT (use these exact words, verbatim)"
           : "LOCKED TRANSCRIPT (transcribed and locked — use verbatim)";
       blocks.push(`${label}:\n"${t.text}"`);
+      blocks.push(
+        [
+          `This locked transcript is the single source of truth for every on-screen word. It matches what the speaker actually says.`,
+          `Align it to the audio by timing only: find where each word is spoken and display it at that moment.`,
+          `Before rendering, verify that the on-screen words reproduce the locked transcript above exactly — same words, same order, same count, nothing added and nothing dropped.`,
+        ].join("\n")
+      );
     }
 
     // Caption behavior
@@ -195,21 +202,83 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       `The dialogue is LOCKED and must be used word-for-word, with no rewriting, translation, insertion, deletion, or repetition:\n"${p.transcript.text}"`
     );
   } else if (p.transcription_requirement?.required) {
-    // Captions were asked for without a known transcript. Say so explicitly
-    // so the video model transcribes rather than inventing dialogue.
+    // Captions were asked for without a known transcript. Spell out a
+    // verification protocol so the model transcribes and self-checks
+    // instead of inventing dialogue.
+    const tr = p.transcription_requirement;
+
+    // Steps are collected unnumbered, then numbered on render so that
+    // toggling any policy off cannot leave a gap in the sequence.
+    const steps: string[] = [];
+    steps.push(
+      `LISTEN to the complete audio of this source video from start to finish before writing any text.`
+    );
+    steps.push(
+      `TRANSCRIBE what is actually spoken, word for word, exactly as heard${
+        tr.preserve_original_language
+          ? `, in the speaker's original language. Do NOT translate it into any other language, not even partially`
+          : ""
+      }.`
+    );
+
+    const keep: string[] = [];
+    if (tr.preserve_filler_words)
+      keep.push("Filler words and hesitations, exactly as spoken.");
+    if (tr.preserve_repeated_words)
+      keep.push(
+        "Genuinely repeated words — repeated exactly as many times as they are actually said, never more and never fewer."
+      );
+    if (tr.preserve_slang_and_dialect)
+      keep.push("Slang, dialect, and informal pronunciation, as spoken.");
+    if (!tr.allow_grammar_correction)
+      keep.push(
+        "The speaker's original grammar, even where it is informal or incorrect."
+      );
+    if (keep.length)
+      steps.push(
+        `PRESERVE the following exactly as spoken:\n${keep.map((k) => `   • ${k}`).join("\n")}`
+      );
+
+    if (tr.verify_against_audio)
+      steps.push(
+        `VERIFY before rendering: replay the audio and compare it against your transcription word by word. Every word on screen must be traceable to a word actually audible in the source. If any word does not match, correct the text to match the audio — never bend the meaning to fit text you already wrote.`
+      );
+    steps.push(
+      `SYNCHRONIZE each word to the exact moment it is spoken, within ${tr.sync_tolerance_seconds} seconds. Text must never run ahead of or behind the voice.`
+    );
+
+    const numberedSteps = steps.map((s, i) => `${i + 1}. ${s}`);
+
+    const prohibitions = [
+      `Do NOT invent dialogue.`,
+      `Do NOT guess what the speaker says.`,
+      `Do NOT write any word that is not audibly spoken in the source.`,
+      `Do NOT omit any word that IS spoken.`,
+      `Do NOT duplicate a word that is spoken only once.`,
+      `Do NOT reorder the spoken words.`,
+      `Do NOT translate the spoken language.`,
+      `Do NOT summarize or paraphrase.`,
+      `Do NOT replace spoken words with keywords, labels, or your own summary.`,
+    ];
+    if (!tr.allow_grammar_correction)
+      prohibitions.push(`Do NOT correct the speaker's grammar or wording.`);
+
     blocks.push(
       [
-        `On-screen text is requested, but the dialogue has NOT been transcribed yet.`,
+        `CRITICAL — THE ON-SCREEN TEXT MUST MATCH THE SPOKEN AUDIO EXACTLY.`,
         ``,
-        `Before generating any on-screen text, transcribe the spoken audio of this source video yourself, word for word, in its original language. Use only that transcription for every caption.`,
+        `On-screen text is requested, but the dialogue has NOT been transcribed yet, so no transcript is supplied with this prompt. You must derive it from the source audio yourself using this protocol:`,
         ``,
-        `Do NOT invent dialogue.`,
-        `Do NOT guess what the speaker says.`,
-        `Do NOT write captions that are not present in the source audio.`,
-        `Do NOT translate the spoken language.`,
-        `Do NOT summarize or paraphrase.`,
-        `If any part of the audio is unclear, leave it without on-screen text rather than guessing.`,
-      ].join("\n")
+        ...numberedSteps,
+        ``,
+        ...prohibitions,
+        tr.omit_unclear_audio
+          ? `\nIf any portion of the audio is unclear or inaudible, leave that portion without on-screen text. Showing nothing is correct; guessing is a failure.`
+          : null,
+        `\nThe finished captions must read as a faithful, verbatim record of what the speaker actually said. Any mismatch between the spoken audio and the on-screen text is a failure of this task.`,
+      ]
+        .filter((l): l is string => l !== null)
+        .join("\n")
     );
   }
 
