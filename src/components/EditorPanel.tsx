@@ -3,6 +3,7 @@ import { useProjectStore } from "../stores/project";
 import { UniversalVideoProject } from "../schemas/universal";
 import { generateHumanPrompt } from "../services/humanPrompt";
 import { ADAPTERS } from "../adapters";
+import { copyToClipboard } from "../utils/clipboard";
 
 type Tab = "visual" | "json" | "validate" | "export";
 
@@ -59,10 +60,17 @@ export default function EditorPanel() {
   const [copied, setCopied] = useState<string | null>(null);
   const p = s.project;
 
+  const [copyFailed, setCopyFailed] = useState<string | null>(null);
   const copy = async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1500);
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      setCopied(key);
+      setCopyFailed(null);
+      setTimeout(() => setCopied(null), 1500);
+    } else {
+      setCopyFailed(key);
+      setTimeout(() => setCopyFailed(null), 3000);
+    }
   };
 
   const download = () => {
@@ -107,6 +115,13 @@ export default function EditorPanel() {
           </button>
         ))}
       </div>
+
+      {copyFailed && (
+        <p className="text-xs text-amber-400" role="alert">
+          Clipboard copy is blocked by your browser on this connection — select the
+          text below manually and copy it (Cmd/Ctrl+C).
+        </p>
+      )}
 
       {!p && (
         <p className="text-xs text-zinc-600 py-8 text-center">
