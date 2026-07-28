@@ -65,6 +65,7 @@ interface ProjectState {
   source: Source;
   videoObjectUrl: string | null;
   platformTargets: UniversalVideoProject["output"]["platform_targets"];
+  targetDurationSeconds: number;
 
   // presets
   customPresets: Preset[];
@@ -115,6 +116,7 @@ function persistInputs(s: ProjectState) {
         manualTranscript: s.manualTranscript,
         language: s.language,
         selectedPresetId: s.selectedPresetId,
+        targetDurationSeconds: s.targetDurationSeconds,
       })
     );
     if (s.project)
@@ -151,6 +153,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   source: DEFAULT_SOURCE,
   videoObjectUrl: null,
   platformTargets: ["instagram_reels", "tiktok", "youtube_shorts"],
+  targetDurationSeconds: 15,
 
   customPresets: loadCustomPresets(),
   selectedPresetId: "cinematic_creator",
@@ -260,6 +263,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         preservation: s.preservation,
         source: s.source,
         platformTargets: s.platformTargets,
+        targetDurationSeconds: s.targetDurationSeconds,
       });
 
       set({ processing: "validating" });

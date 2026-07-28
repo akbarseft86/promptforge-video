@@ -175,6 +175,9 @@ export const ConstraintsSchema = z.object({
   no_unreadable_text: z.boolean().optional(),
   no_lighting_artifacts: z.boolean().optional(),
   no_chaotic_edit: z.boolean().optional(),
+  no_subject_blur: z.boolean().optional(),
+  no_facial_detail_loss: z.boolean().optional(),
+  no_resolution_loss: z.boolean().optional(),
 });
 
 // ---------- optional dynamic modules ----------
@@ -219,6 +222,17 @@ export const BackgroundMusicSchema = z.object({
 export const VisualEffectsSchema = z.object({
   enabled: z.boolean(),
   effects: z.array(z.string()),
+});
+
+/**
+ * Guards the source subject against the softening that stacking
+ * depth-of-field, bokeh, glow and relighting otherwise produces.
+ */
+export const ImageFidelitySchema = z.object({
+  preserve_subject_sharpness: z.boolean(),
+  preserve_source_resolution: z.boolean(),
+  depth_effects_background_only: z.boolean(),
+  allow_face_smoothing: z.boolean(),
 });
 
 export const MotionGraphicsSchema = z.object({
@@ -297,6 +311,7 @@ export const UniversalVideoProjectSchema = z.object({
   visual_effects: VisualEffectsSchema.optional(),
   motion_graphics: MotionGraphicsSchema.optional(),
   camera_motion: CameraMotionSchema.optional(),
+  image_fidelity: ImageFidelitySchema.optional(),
   transcription_requirement: TranscriptionRequirementSchema.optional(),
 });
 

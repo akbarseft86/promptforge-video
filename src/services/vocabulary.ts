@@ -32,7 +32,8 @@ export const EDITING_PHRASES: Record<string, string> = {
 
 export const CAMERA_MOVE_PHRASES: Record<string, string> = {
   smooth_movement: "Smooth camera movement.",
-  motion_blur: "Motion blur transitions.",
+  motion_blur:
+    "Motion blur on transitions only — never on held shots of the speaker.",
   whip_pan: "Cinematic whip pans.",
   camera_shake: "Subtle camera shake on impact beats.",
   parallax: "Parallax depth movement.",
@@ -45,8 +46,8 @@ export const VISUAL_EFFECT_PHRASES: Record<string, string> = {
   particles: "Soft particles.",
   light_streaks: "Light streaks.",
   lens_flares: "Lens flares.",
-  bokeh: "Cinematic bokeh depth.",
-  glow: "Subtle ambient glow.",
+  bokeh: "Cinematic bokeh depth in the background only — the speaker stays sharp.",
+  glow: "Subtle ambient glow around the environment, not washing over the speaker.",
   grain: "Fine cinematic film grain.",
   chromatic: "Restrained chromatic aberration on accents.",
   vignette: "Soft cinematic vignette.",
@@ -102,6 +103,12 @@ export const CONSTRAINT_PHRASES: Record<string, string> = {
   no_future_dialogue: "Do NOT show dialogue before it is spoken.",
   no_effect_overload: "Do NOT overuse effects.",
   no_lighting_artifacts: "Do NOT create lighting artifacts.",
+  no_subject_blur:
+    "Do NOT blur, soften, or defocus the speaker — no depth-of-field, bokeh, haze, glow, or particles over the face or body.",
+  no_facial_detail_loss:
+    "Do NOT smooth, denoise, retouch, or beautify the face — keep the original skin texture and facial detail.",
+  no_resolution_loss:
+    "Do NOT reduce the sharpness, detail, or resolution of the original footage.",
   no_source_distortion: "Do NOT distort the original footage.",
   no_chaotic_edit: "Do NOT make the edit feel chaotic or distracting.",
 };

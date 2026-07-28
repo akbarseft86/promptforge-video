@@ -280,6 +280,29 @@ export default function InputPanel() {
         </p>
       </div>
 
+      {s.source.media_type !== "video" && (
+        <div>
+          <label className="field-label" htmlFor="targetDuration">
+            Target Duration (seconds)
+          </label>
+          <input
+            id="targetDuration"
+            type="number"
+            min={1}
+            max={600}
+            className="text-input"
+            value={s.targetDurationSeconds}
+            onChange={(e) =>
+              s.set({ targetDurationSeconds: Number(e.target.value) || 15 })
+            }
+          />
+          <p className="text-[11px] text-zinc-600 mt-1">
+            No video attached, so the timeline is planned against this intended
+            length. Recorded as <code>output.target_duration_seconds</code>.
+          </p>
+        </div>
+      )}
+
       <div>
         <label className="field-label" htmlFor="customStyle">
           Custom Style (optional)
@@ -297,7 +320,7 @@ export default function InputPanel() {
       <div className="pt-1">
         <button
           className="btn-primary w-full justify-center"
-          disabled={busy || (!s.instructions.trim() && s.source.media_type !== "video" && !s.manualTranscript.trim())}
+          disabled={busy}
           onClick={() => s.generate()}
         >
           {busy ? STATE_LABELS[s.processing] : "⚡ Generate Universal JSON"}

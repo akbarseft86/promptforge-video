@@ -38,8 +38,16 @@ Build: `npm run build` (type-checks + bundles to `dist/`).
   references, timeline bounds and negative durations, effect density,
   preservation conflicts, aspect-ratio/platform mismatches. Severities:
   PASS / INFO / WARNING / ERROR.
-- **7 built-in presets** + custom presets (duplicate, edit, delete,
-  import/export as validated JSON, persisted in localStorage).
+- **36 built-in presets** across 7 categories, searchable and filterable, plus
+  custom presets (duplicate, edit, delete, import/export as validated JSON,
+  persisted in localStorage).
+- **Subject-sharpness protection** — when a real person must survive the edit,
+  the prompt scopes depth of field, bokeh, glow and particles to the background
+  and forbids blurring, smoothing, or downscaling the speaker. Stacking those
+  effects with background replacement and relighting otherwise softens the face.
+- **Works from a preset alone** — no video, transcript, or instructions
+  required; the timeline is then planned against a target duration recorded as
+  `output.target_duration_seconds`.
 - **AI preset recommendation** (rule-based locally; designed to be replaced by
   the semantic-analysis service).
 - **Human-readable prompt generator** — a faithful natural-language rendering

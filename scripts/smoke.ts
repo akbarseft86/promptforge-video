@@ -158,6 +158,104 @@ assert(
   "validator errors on captions with an empty transcript"
 );
 
+console.log("Talking-head framing and subject sharpness:");
+const th = generateUniversalProject({
+  projectName: "TH", instructions: "", customStyle: "",
+  preset: BUILTIN_PRESETS.find((x) => x.id === "tech_ai_futuristic")!,
+  transcriptMode: "auto", manualTranscript: "", autoTranscript: "",
+  speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+  preservation: {
+    identity: true, voice: true, lip_sync: true, facial_expression: true,
+    body_language: true, clothing: true, original_colors: true,
+    body_proportions: true, original_language: true, camera_perspective: false,
+  },
+  source: { media_type: "video", duration_seconds: 8.33, aspect_ratio: "4:5" },
+  platformTargets: ["instagram_reels"],
+});
+const thText = generateHumanPrompt(th);
+assert(
+  thText.startsWith("Transform this raw talking-head video"),
+  "a preserved on-camera speaker reads as talking-head, with or without a transcript"
+);
+assert(
+  thText.includes("IMAGE FIDELITY — THE SPEAKER MUST STAY SHARP"),
+  "sharpness block present when a person must survive the edit"
+);
+assert(
+  thText.indexOf("IMAGE FIDELITY") < thText.indexOf("Replace the original background"),
+  "sharpness is stated before background replacement, not after"
+);
+assert(
+  thText.includes("BACKGROUND ONLY") &&
+    thText.includes("Do NOT blur, soften, or defocus the speaker"),
+  "depth effects are scoped to background and subject blur is forbidden"
+);
+assert(
+  !/Use subtle depth, perspective, parallax, glow, and blur/.test(thText),
+  "caption behavior no longer instructs a blanket blur"
+);
+
+// Text-only projects must not claim footage that does not exist.
+const concept = generateUniversalProject({
+  projectName: "C", instructions: "captions", customStyle: "",
+  preset: BUILTIN_PRESETS[0], transcriptMode: "auto",
+  manualTranscript: "", autoTranscript: "",
+  speakers: [{ id: "speaker_1", label: "S" }],
+  preservation: {
+    identity: true, voice: true, lip_sync: true, facial_expression: true,
+    body_language: true, clothing: true, original_colors: true,
+    body_proportions: true, original_language: true, camera_perspective: false,
+  },
+  source: { media_type: "text_only" },
+  platformTargets: ["instagram_reels"], targetDurationSeconds: 15,
+});
+const conceptText = generateHumanPrompt(concept);
+assert(
+  !conceptText.includes("audio of this source video"),
+  "a text-only project does not tell the model to listen to a video it has no access to"
+);
+assert(
+  conceptText.includes("When this is applied to source footage"),
+  "text-only preservation is phrased as applying to footage supplied later"
+);
+
+console.log("Preset-only project (no video, no text, no instructions):");
+const presetOnly = generateUniversalProject({
+  projectName: "Preset Only",
+  instructions: "",
+  customStyle: "",
+  preset: BUILTIN_PRESETS[0],
+  transcriptMode: "none",
+  manualTranscript: "",
+  autoTranscript: "",
+  speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+  preservation: {
+    identity: true, voice: true, lip_sync: true, facial_expression: true,
+    body_language: true, clothing: true, original_colors: true,
+    body_proportions: true, original_language: true, camera_perspective: false,
+  },
+  source: { media_type: "text_only" },
+  platformTargets: ["instagram_reels"],
+  targetDurationSeconds: 20,
+});
+assert(presetOnly.timeline.length > 0, `timeline planned (${presetOnly.timeline.length} events)`);
+assert(
+  presetOnly.output.target_duration_seconds === 20,
+  "intended length recorded as output.target_duration_seconds"
+);
+assert(
+  presetOnly.timeline.every((e) => e.end <= 20.01),
+  "planned events stay within the target duration"
+);
+assert(
+  validateProject(presetOnly)[0].severity !== "ERROR",
+  `preset-only project validates (${validateProject(presetOnly)[0].severity})`
+);
+assert(
+  generateHumanPrompt(presetOnly).length > 400,
+  "preset-only project still yields a full prompt"
+);
+
 console.log("Preset library:");
 assert(BUILTIN_PRESETS.length >= 30, `${BUILTIN_PRESETS.length} built-in presets`);
 assert(

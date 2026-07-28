@@ -27,14 +27,24 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   const bullets = (items: string[]) => items.map((i) => `• ${i}`).join("\n");
 
   // ---------- 1. Opening transformation statement ----------
-  const subject =
-    p.source.media_type !== "video"
-      ? "concept"
-      : p.speakers.length > 1
-        ? "raw multi-speaker video"
-        : p.transcript.source !== "none"
-          ? "raw talking-head video"
-          : "raw source video";
+  const hasVideo = p.source.media_type === "video";
+  // Someone is speaking on camera whenever the edit is built around keeping a
+  // speaker intact — not merely when a transcript happens to be available.
+  const speakerOnCamera =
+    p.speakers.length > 0 &&
+    (p.speaker_preservation.lip_sync ||
+      p.speaker_preservation.voice ||
+      p.speaker_preservation.identity ||
+      p.transcript.source !== "none" ||
+      p.transcription_requirement?.required === true);
+
+  const subject = !hasVideo
+    ? "concept"
+    : p.speakers.length > 1
+      ? "raw multi-speaker video"
+      : speakerOnCamera
+        ? "raw talking-head video"
+        : "raw source video";
 
   const quality = p.output.style_quality === "premium" ? "premium" : "polished";
   const retention =
@@ -68,8 +78,38 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
 
   if (preserved.length) {
     blocks.push(
-      `Preserve the original speaker exactly as filmed. Keep the ${joinNatural(preserved)} unchanged.`
+      hasVideo
+        ? `Preserve the original speaker exactly as filmed. Keep the ${joinNatural(preserved)} unchanged.`
+        : `When this is applied to source footage, preserve the speaker exactly as filmed: keep the ${joinNatural(preserved)} unchanged.`
     );
+  }
+
+  // ---------- 2b. Image fidelity ----------
+  // Placed directly after preservation: stacking depth-of-field, bokeh, glow
+  // and relighting reliably softens the subject unless sharpness is demanded.
+  const fid = p.image_fidelity;
+  if (fid) {
+    const fidLines: string[] = [];
+    if (fid.preserve_subject_sharpness)
+      fidLines.push(
+        `Keep the speaker tack sharp and in full focus for the entire edit.`
+      );
+    if (fid.depth_effects_background_only)
+      fidLines.push(
+        `Depth of field, bokeh, glow, particles, light streaks, haze, and grain apply to the BACKGROUND ONLY. None of them may touch the speaker's face, hair, or body.`
+      );
+    if (!fid.allow_face_smoothing)
+      fidLines.push(
+        `Do not smooth, denoise, retouch, or beautify the face. Preserve the original skin texture, pores, and fine facial detail.`
+      );
+    if (fid.preserve_source_resolution)
+      fidLines.push(
+        `Match the sharpness and detail of the source footage. The result must never look softer, hazier, or lower-resolution than the original.`
+      );
+    if (fidLines.length)
+      blocks.push(
+        `IMAGE FIDELITY — THE SPEAKER MUST STAY SHARP.\n${fidLines.map((l) => `• ${l}`).join("\n")}`
+      );
   }
 
   // ---------- 3. Background replacement ----------
@@ -179,7 +219,9 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
         "Motion-track the text so it integrates into the environment."
       );
     if (c.depth_integration)
-      behavior.push("Use subtle depth, perspective, parallax, glow, and blur.");
+      behavior.push(
+        "Give the text subtle depth, perspective, and parallax so it sits in the scene. Any softening belongs to the text layer alone — never to the speaker."
+      );
     if (c.kinetic_typography) {
       const anims = phrasesFor(c.animations, CAPTION_ANIMATION_PHRASES);
       behavior.push(
@@ -211,7 +253,9 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
     // toggling any policy off cannot leave a gap in the sequence.
     const steps: string[] = [];
     steps.push(
-      `LISTEN to the complete audio of this source video from start to finish before writing any text.`
+      hasVideo
+        ? `LISTEN to the complete audio of this source video from start to finish before writing any text.`
+        : `LISTEN to the complete audio of the source footage this is applied to, from start to finish, before writing any text.`
     );
     steps.push(
       `TRANSCRIBE what is actually spoken, word for word, exactly as heard${

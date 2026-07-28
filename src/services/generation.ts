@@ -29,6 +29,11 @@ export interface GenerationInput {
   preservation: UniversalVideoProject["speaker_preservation"];
   source: UniversalVideoProject["source"];
   platformTargets: UniversalVideoProject["output"]["platform_targets"];
+  /**
+   * Planning length used when no source video is attached, so a preset alone
+   * still yields a laid-out timeline. Ignored once a real duration is known.
+   */
+  targetDurationSeconds?: number;
 }
 
 const FREQ_INTERVALS: Record<string, number> = {
@@ -255,14 +260,32 @@ export function generateUniversalProject(
         : "none";
 
   const duration = input.source.duration_seconds ?? 0;
+  // With no footage attached the timeline is a plan against an intended
+  // length rather than a measurement of real media.
+  const isPlanOnly = duration <= 0;
+  const planningDuration = isPlanOnly
+    ? Math.max(1, input.targetDurationSeconds ?? 15)
+    : duration;
   // Captions transcribe a locked source verbatim, so they require one to
   // exist. Enabling them from the instructions alone would emit a
   // "word-for-word from the locked transcript" directive with no words
   // behind it, forcing the downstream video model to invent the dialogue.
   const hasLockedText = lockedText.trim().length > 0;
   const captionsEnabled = !flags.noCaptions && hasLockedText;
-  const captionsRequestedButUnavailable =
-    !flags.noCaptions && flags.captions && !hasLockedText;
+  // On-screen dialogue text can be asked for three ways: by naming it in the
+  // instructions, by picking a preset that puts typography on screen, or by
+  // choosing "auto from vocal" — which is itself a request to transcribe.
+  // "None" is an explicit opt-out, overridden only by naming captions directly.
+  const presetImpliesTypography =
+    preset.editing.typography_frequency !== "off";
+  const wantsOnScreenText =
+    !flags.noCaptions &&
+    (flags.captions ||
+      flags.typography ||
+      (input.transcriptMode !== "none" && presetImpliesTypography));
+  const captionsRequestedButUnavailable = wantsOnScreenText && !hasLockedText;
+  /** True when the finished edit renders spoken words on screen at all. */
+  const hasOnScreenText = captionsEnabled || captionsRequestedButUnavailable;
   const sfxEnabled = flags.sfx || preset.sound_design.intensity !== "low";
   const musicEnabled = flags.music || preset.music_styles.length > 0;
 
@@ -294,7 +317,7 @@ export function generateUniversalProject(
     },
     dialogue_timeline: segmentLockedTranscript(
       lockedText,
-      duration,
+      planningDuration,
       input.speakers
     ),
     speaker_preservation: input.preservation,
@@ -338,20 +361,29 @@ export function generateUniversalProject(
       dialogue_priority: "highest",
       music_ducking: musicEnabled,
     },
-    timeline: buildTimeline(duration, preset, flags, sfxEnabled, hasLockedText),
+    timeline: buildTimeline(
+      planningDuration,
+      preset,
+      flags,
+      sfxEnabled,
+      hasLockedText
+    ),
     output: {
       content_type: "social_short",
       platform_targets: input.platformTargets,
       aspect_ratio: input.source.aspect_ratio ?? "9:16",
+      target_duration_seconds: isPlanOnly ? planningDuration : undefined,
       style_quality: "premium",
     },
     constraints: {
       no_identity_change: input.preservation.identity,
       no_voice_change: input.preservation.voice,
       no_wardrobe_change: input.preservation.clothing,
-      no_dialogue_rewrite: true,
-      no_dialogue_repetition: true,
-      no_missing_dialogue: true,
+      // Dialogue-text rules only mean something when words appear on screen;
+      // asserting them otherwise describes text the edit never renders.
+      no_dialogue_rewrite: hasOnScreenText,
+      no_dialogue_repetition: hasOnScreenText,
+      no_missing_dialogue: hasOnScreenText,
       no_translation: true,
       no_caption_face_overlap: captionsEnabled,
       no_future_dialogue: captionsEnabled,
@@ -359,10 +391,13 @@ export function generateUniversalProject(
       no_effect_overload: true,
       no_lip_sync_change: input.preservation.lip_sync,
       no_body_proportion_change: input.preservation.body_proportions,
-      no_keyword_substitution: true,
-      no_added_dialogue: true,
+      no_keyword_substitution: hasOnScreenText,
+      no_added_dialogue: hasOnScreenText,
       no_unreadable_text: captionsEnabled,
       no_lighting_artifacts: true,
+      no_subject_blur: input.preservation.identity || input.preservation.lip_sync,
+      no_facial_detail_loss: input.preservation.identity,
+      no_resolution_loss: true,
       no_chaotic_edit: true,
     },
   };
@@ -438,6 +473,18 @@ export function generateUniversalProject(
   }
   if (preset.camera_moves?.length) {
     project.camera_motion = { enabled: true, moves: preset.camera_moves };
+  }
+
+  // Whenever a real person must survive the edit, defend their sharpness:
+  // background replacement, relighting, bokeh and glow otherwise compound
+  // into a visibly soft subject.
+  if (input.preservation.identity || input.preservation.lip_sync) {
+    project.image_fidelity = {
+      preserve_subject_sharpness: true,
+      preserve_source_resolution: true,
+      depth_effects_background_only: true,
+      allow_face_smoothing: false,
+    };
   }
 
   return project;
