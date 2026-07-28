@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-base text-zinc-200 font-sans antialiased;
+  }
+  body {
+    @apply min-h-screen;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-line rounded;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-panel border border-line rounded-xl;
+  }
+  .field-label {
+    @apply block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5;
+  }
+  .text-input {
+    @apply w-full bg-panel2 border border-line rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/60;
+  }
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary/85;
+  }
+  .btn-ghost {
+    @apply btn bg-panel2 border border-line text-zinc-300 hover:border-primary/50 hover:text-white;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium;
+  }
+  .tab-btn {
+    @apply px-3 py-1.5 text-xs font-medium rounded-md transition-colors;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
