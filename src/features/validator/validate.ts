@@ -140,6 +140,34 @@ export function validateProject(raw: unknown): ValidationResult[] {
     });
   }
 
+  // 2b. Captions must never claim a verbatim source that does not exist.
+  if (p.captions?.enabled && !p.transcript.text.trim()) {
+    results.push({
+      severity: "ERROR",
+      title: "Captions Without Transcript",
+      detail:
+        "Captions are enabled and sourced from the locked transcript, but the transcript is empty. Any generated caption would be invented dialogue. Provide a manual transcript or disable captions.",
+    });
+  }
+  const typographyEvents = p.timeline.filter(
+    (e) => e.text_source === "locked_transcript"
+  );
+  if (typographyEvents.length && !p.transcript.text.trim()) {
+    results.push({
+      severity: "ERROR",
+      title: "Typography Without Transcript",
+      detail: `${typographyEvents.length} timeline event(s) quote the locked transcript, but it is empty: ${typographyEvents.map((e) => e.id).join(", ")}`,
+    });
+  }
+  if (p.transcription_requirement?.required) {
+    results.push({
+      severity: "WARNING",
+      title: "Transcription Delegated To Video Model",
+      detail:
+        "On-screen text was requested without a locked transcript, so the prompt instructs the video model to transcribe the audio itself. Word-for-word accuracy cannot be verified here — supply a manual transcript for a guaranteed match.",
+    });
+  }
+
   // 3. Speaker references
   const speakerIds = new Set(p.speakers.map((s) => s.id));
   const badRefs = p.dialogue_timeline.filter(

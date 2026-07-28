@@ -204,9 +204,17 @@ export default function InputPanel() {
           </div>
         )}
         {s.transcriptMode === "auto" && (
+          <p className="text-[11px] text-amber-500/90">
+            ⚠ The AI backend is not connected, so nothing is transcribed here. Captions
+            cannot be word-locked — the prompt will instead order the video model to
+            transcribe the audio itself, and its accuracy cannot be verified. For a
+            guaranteed word-for-word match, use <strong>Manual Locked</strong>.
+          </p>
+        )}
+        {s.transcriptMode === "none" && (
           <p className="text-[11px] text-zinc-600">
-            Vocal audio will be transcribed and locked before caption generation.
-            Requires the AI backend; without it, generation proceeds without a transcript.
+            No captions or kinetic typography will be generated, since there is no
+            dialogue to quote verbatim.
           </p>
         )}
       </div>

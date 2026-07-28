@@ -89,7 +89,8 @@ function buildTimeline(
   duration: number,
   preset: Preset,
   flags: ReturnType<typeof detectFlags>,
-  sfxEnabled: boolean
+  sfxEnabled: boolean,
+  hasLockedText: boolean
 ): TimelineEvent[] {
   eventCounter = 0;
   const events: TimelineEvent[] = [];
@@ -157,7 +158,12 @@ function buildTimeline(
       })
     );
   }
-  if (flags.typography || preset.editing.typography_frequency !== "off") {
+  // Typography events quote the locked transcript, so they only exist when
+  // there is locked text to quote.
+  if (
+    hasLockedText &&
+    (flags.typography || preset.editing.typography_frequency !== "off")
+  ) {
     addRepeating(typoEvery, (s, e) =>
       evt({
         start: s,
@@ -249,7 +255,14 @@ export function generateUniversalProject(
         : "none";
 
   const duration = input.source.duration_seconds ?? 0;
-  const captionsEnabled = !flags.noCaptions && (flags.captions || !!lockedText);
+  // Captions transcribe a locked source verbatim, so they require one to
+  // exist. Enabling them from the instructions alone would emit a
+  // "word-for-word from the locked transcript" directive with no words
+  // behind it, forcing the downstream video model to invent the dialogue.
+  const hasLockedText = lockedText.trim().length > 0;
+  const captionsEnabled = !flags.noCaptions && hasLockedText;
+  const captionsRequestedButUnavailable =
+    !flags.noCaptions && flags.captions && !hasLockedText;
   const sfxEnabled = flags.sfx || preset.sound_design.intensity !== "low";
   const musicEnabled = flags.music || preset.music_styles.length > 0;
 
@@ -325,7 +338,7 @@ export function generateUniversalProject(
       dialogue_priority: "highest",
       music_ducking: musicEnabled,
     },
-    timeline: buildTimeline(duration, preset, flags, sfxEnabled),
+    timeline: buildTimeline(duration, preset, flags, sfxEnabled, hasLockedText),
     output: {
       content_type: "social_short",
       platform_targets: input.platformTargets,
@@ -399,6 +412,14 @@ export function generateUniversalProject(
           : preset.editing.pacing === "relaxed"
             ? "subtle"
             : "moderate",
+    };
+  }
+  if (captionsRequestedButUnavailable) {
+    project.transcription_requirement = {
+      required: true,
+      reason:
+        "Captions were requested but no transcript has been locked yet, so the dialogue is not known at prompt-generation time.",
+      transcribe_from: "source_audio",
     };
   }
   if (preset.visual_effects?.length) {

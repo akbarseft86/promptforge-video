@@ -87,6 +87,63 @@ const res = validateProject(broken);
 assert(res.some((r) => r.title === "Event Outside Video Duration"), "out-of-bounds event detected");
 assert(res.some((r) => r.title === "Invalid Speaker Reference"), "invalid speaker ref detected");
 
+console.log("No-transcript safety (captions requested, none available):");
+const noTranscript = generateUniversalProject({
+  projectName: "Creator Reel",
+  instructions:
+    "Make this a premium reel with word-for-word captions, B-roll, and sound effects.",
+  customStyle: "",
+  preset: BUILTIN_PRESETS[0],
+  transcriptMode: "none",
+  manualTranscript: "",
+  autoTranscript: "",
+  speakers: [{ id: "speaker_1", label: "Creator" }],
+  preservation: {
+    identity: true, voice: true, lip_sync: true, facial_expression: true,
+    body_language: true, clothing: true, original_colors: true,
+    body_proportions: true, original_language: true, camera_perspective: false,
+  },
+  source: { media_type: "video", duration_seconds: 8.33, aspect_ratio: "4:5" },
+  platformTargets: ["instagram_reels"],
+});
+assert(!noTranscript.captions, "captions module NOT created without a transcript");
+assert(
+  !noTranscript.timeline.some((e) => e.text_source === "locked_transcript"),
+  "no timeline event quotes an empty transcript"
+);
+assert(
+  noTranscript.transcription_requirement?.required === true,
+  "transcription requirement flagged instead"
+);
+const ntPrompt = generateHumanPrompt(noTranscript);
+assert(
+  ntPrompt.includes("transcribe the spoken audio of this source video yourself"),
+  "prompt orders the model to transcribe from audio"
+);
+assert(
+  ntPrompt.includes("Do NOT invent dialogue."),
+  "prompt forbids inventing dialogue"
+);
+assert(
+  !ntPrompt.includes("perfect word-for-word transcription of the speaker's dialogue"),
+  "prompt does not claim a verbatim source that does not exist"
+);
+const ntVal = validateProject(noTranscript);
+assert(
+  ntVal.some((r) => r.title === "Transcription Delegated To Video Model"),
+  "validator warns transcription is delegated"
+);
+const fakeCaptions = structuredClone(noTranscript) as any;
+fakeCaptions.captions = {
+  enabled: true, source: "locked_transcript", word_for_word: true,
+  word_synchronized: true, prevent_face_overlap: true,
+  allow_future_dialogue: false, kinetic_typography: true,
+};
+assert(
+  validateProject(fakeCaptions).some((r) => r.title === "Captions Without Transcript"),
+  "validator errors on captions with an empty transcript"
+);
+
 console.log("Preset library:");
 assert(BUILTIN_PRESETS.length >= 30, `${BUILTIN_PRESETS.length} built-in presets`);
 assert(

@@ -194,6 +194,23 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
     blocks.push(
       `The dialogue is LOCKED and must be used word-for-word, with no rewriting, translation, insertion, deletion, or repetition:\n"${p.transcript.text}"`
     );
+  } else if (p.transcription_requirement?.required) {
+    // Captions were asked for without a known transcript. Say so explicitly
+    // so the video model transcribes rather than inventing dialogue.
+    blocks.push(
+      [
+        `On-screen text is requested, but the dialogue has NOT been transcribed yet.`,
+        ``,
+        `Before generating any on-screen text, transcribe the spoken audio of this source video yourself, word for word, in its original language. Use only that transcription for every caption.`,
+        ``,
+        `Do NOT invent dialogue.`,
+        `Do NOT guess what the speaker says.`,
+        `Do NOT write captions that are not present in the source audio.`,
+        `Do NOT translate the spoken language.`,
+        `Do NOT summarize or paraphrase.`,
+        `If any part of the audio is unclear, leave it without on-screen text rather than guessing.`,
+      ].join("\n")
+    );
   }
 
   // ---------- 6. Premium editing ----------

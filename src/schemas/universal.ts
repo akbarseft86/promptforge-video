@@ -231,6 +231,17 @@ export const CameraMotionSchema = z.object({
   moves: z.array(z.string()),
 });
 
+/**
+ * Set when captions were requested but no locked transcript exists yet.
+ * Downstream prompts must then instruct the video model to transcribe the
+ * source audio itself rather than invent dialogue.
+ */
+export const TranscriptionRequirementSchema = z.object({
+  required: z.literal(true),
+  reason: z.string(),
+  transcribe_from: z.literal("source_audio"),
+});
+
 export const AnalysisSchema = z
   .object({
     scenes: z.number().optional(),
@@ -278,6 +289,7 @@ export const UniversalVideoProjectSchema = z.object({
   visual_effects: VisualEffectsSchema.optional(),
   motion_graphics: MotionGraphicsSchema.optional(),
   camera_motion: CameraMotionSchema.optional(),
+  transcription_requirement: TranscriptionRequirementSchema.optional(),
 });
 
 export type UniversalVideoProject = z.infer<typeof UniversalVideoProjectSchema>;
