@@ -190,19 +190,12 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       );
     }
 
-    // The locked transcript itself, when the user supplied or locked one.
+    // The transcript text itself is emitted as the final block of the prompt
+    // (see section 13) — practitioners report the spoken lines landing more
+    // reliably when they close the prompt rather than sit in its middle.
     if (hasTranscript && t.text.trim()) {
-      const label =
-        t.source === "manual_locked"
-          ? "LOCKED TRANSCRIPT (use these exact words, verbatim)"
-          : "LOCKED TRANSCRIPT (transcribed and locked — use verbatim)";
-      blocks.push(`${label}:\n"${t.text}"`);
       blocks.push(
-        [
-          `This locked transcript is the single source of truth for every on-screen word. It matches what the speaker actually says.`,
-          `Align it to the audio by timing only: find where each word is spoken and display it at that moment.`,
-          `Before rendering, verify that the on-screen words reproduce the locked transcript above exactly — same words, same order, same count, nothing added and nothing dropped.`,
-        ].join("\n")
+        `The exact words to display are supplied at the very end of this prompt, under LOCKED TRANSCRIPT. Use that text and nothing else as the source for every on-screen word.`
       );
     }
 
@@ -444,6 +437,27 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   blocks.push(
     `Final output should look like a ${quality} ${joinNatural(platforms, "or")} edited by a world-class creative agency, featuring ${joinNatural(finalFeatures)}.`
   );
+
+  // ---------- 13. Locked transcript, last ----------
+  // Closing the prompt with the spoken lines keeps them adjacent to where the
+  // model starts writing, instead of buried behind the styling instructions.
+  if (p.transcript.source !== "none" && p.transcript.text.trim()) {
+    const label =
+      p.transcript.source === "manual_locked"
+        ? "LOCKED TRANSCRIPT — the speaker says exactly this, word for word"
+        : "LOCKED TRANSCRIPT — transcribed and locked, word for word";
+    blocks.push(
+      [
+        `${label}:`,
+        ``,
+        `"${p.transcript.text}"`,
+        ``,
+        `This text is the single source of truth for every on-screen word, and it matches what is spoken in the attached video.`,
+        `Align it to the audio by timing only: find where each word is spoken and show it at that moment.`,
+        `Before rendering, verify the on-screen words reproduce the text above exactly — same words, same order, same count, nothing added and nothing dropped.`,
+      ].join("\n")
+    );
+  }
 
   return blocks.join("\n\n");
 }

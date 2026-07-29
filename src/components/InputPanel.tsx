@@ -154,8 +154,8 @@ export default function InputPanel() {
         <div className="flex gap-1 mb-2" role="tablist" aria-label="Transcript mode">
           {(
             [
-              ["auto", "Auto from Vocal"],
               ["manual", "Manual Locked"],
+              ["auto", "Auto from Vocal"],
               ["none", "None"],
             ] as const
           ).map(([mode, label]) => (
@@ -182,6 +182,11 @@ export default function InputPanel() {
               </span>
               <span className="text-[11px] text-zinc-500">AI cannot rewrite this text.</span>
             </div>
+            <p className="text-[11px] text-zinc-500 mb-1.5">
+              The most reliable path: type what is actually said in the video.
+              It is placed at the very end of the generated prompt, where
+              spoken lines land most consistently.
+            </p>
             <textarea
               className="text-input font-mono min-h-[90px]"
               placeholder="Paste the exact dialogue…"
@@ -204,6 +209,8 @@ export default function InputPanel() {
             cannot be word-locked — the prompt will instead order the video model to
             transcribe the audio itself, and its accuracy cannot be verified. For a
             guaranteed word-for-word match, use <strong>Manual Locked</strong>.
+            Whichever you pick, clearly articulated speech in the source video
+            markedly improves the result.
           </p>
         )}
         {s.transcriptMode === "none" && (

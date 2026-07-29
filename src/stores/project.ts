@@ -172,7 +172,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   projectName: "Creator Reel",
   instructions: "",
   customStyle: "",
-  transcriptMode: "auto",
+  transcriptMode: "manual",
   manualTranscript: "",
   autoTranscript: "",
   language: "",

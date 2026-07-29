@@ -346,6 +346,26 @@ for (const section of [
   assert(human.includes(section), `prompt contains "${section.slice(0, 40)}"`);
 }
 
+// The spoken lines must close the prompt, not sit in its middle.
+{
+  assert(
+    human.indexOf(locked) > human.indexOf("Final output should look like"),
+    "the locked transcript is the final block of the prompt"
+  );
+  assert(
+    human.lastIndexOf("LOCKED TRANSCRIPT —") > human.indexOf("Negative Constraints:"),
+    "transcript comes after the styling and constraint sections"
+  );
+  assert(
+    human.includes("supplied at the very end of this prompt"),
+    "the captions section points forward to it"
+  );
+  assert(
+    human.split(locked).length - 1 === 1,
+    "the transcript text appears exactly once"
+  );
+}
+
 // Locked-transcript path must also demand a verbatim self-check.
 assert(
   human.includes("single source of truth for every on-screen word") &&
