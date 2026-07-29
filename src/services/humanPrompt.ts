@@ -30,15 +30,27 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   const hasVideo = p.source.media_type === "video";
   // Someone is speaking on camera whenever the edit is built around keeping a
   // speaker intact — not merely when a transcript happens to be available.
+  // A talking head is a person whose likeness must survive the edit — that is
+  // what preservation locks encode. Needing a transcript only proves there is
+  // audio, which is a weaker claim, so the two are kept apart.
   const speakerOnCamera =
     p.speakers.length > 0 &&
-    (p.speaker_preservation.lip_sync ||
+    (p.speaker_preservation.identity ||
+      p.speaker_preservation.lip_sync ||
       p.speaker_preservation.voice ||
-      p.speaker_preservation.identity ||
-      p.transcript.source !== "none" ||
-      p.transcription_requirement?.required === true);
+      p.speaker_preservation.facial_expression);
+  const hasSpokenContent =
+    p.transcript.source !== "none" ||
+    p.transcription_requirement?.required === true;
 
-  const subject = !hasVideo
+  // Preserving a real speaker only makes sense against real footage. Whether
+  // THIS app holds the file is an app-side detail — the prompt is pasted into
+  // a tool where the user attaches the clip — so preservation being on is
+  // enough to describe the input as footage. Calling it a "concept" tells the
+  // video model there is no source, inviting it to generate a new person
+  // instead of editing the one on camera.
+  const editsFootage = hasVideo || speakerOnCamera || hasSpokenContent;
+  const subject = !editsFootage
     ? "concept"
     : p.speakers.length > 1
       ? "raw multi-speaker video"
@@ -78,9 +90,9 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
 
   if (preserved.length) {
     blocks.push(
-      hasVideo
+      editsFootage
         ? `Preserve the original speaker exactly as filmed. Keep the ${joinNatural(preserved)} unchanged.`
-        : `When this is applied to source footage, preserve the speaker exactly as filmed: keep the ${joinNatural(preserved)} unchanged.`
+        : `Preserve the speaker exactly as filmed: keep the ${joinNatural(preserved)} unchanged.`
     );
   }
 
@@ -253,9 +265,9 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
     // toggling any policy off cannot leave a gap in the sequence.
     const steps: string[] = [];
     steps.push(
-      hasVideo
-        ? `LISTEN to the complete audio of this source video from start to finish before writing any text.`
-        : `LISTEN to the complete audio of the source footage this is applied to, from start to finish, before writing any text.`
+      editsFootage
+        ? `LISTEN to the complete audio of the attached source video from start to finish before writing any text.`
+        : `LISTEN to the complete audio of the attached source footage from start to finish before writing any text.`
     );
     steps.push(
       `TRANSCRIBE what is actually spoken, word for word, exactly as heard${

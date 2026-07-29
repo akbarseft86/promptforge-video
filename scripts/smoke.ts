@@ -211,13 +211,24 @@ const concept = generateUniversalProject({
   platformTargets: ["instagram_reels"], targetDurationSeconds: 15,
 });
 const conceptText = generateHumanPrompt(concept);
+// The downstream tool is where footage gets attached, so preservation being
+// on must still read as real footage — calling it a "concept" invites the
+// model to generate a new person instead of editing the one on camera.
 assert(
-  !conceptText.includes("audio of this source video"),
-  "a text-only project does not tell the model to listen to a video it has no access to"
+  conceptText.startsWith("Transform this raw talking-head video"),
+  "preserving a speaker reads as footage even when this app holds no file"
 );
 assert(
-  conceptText.includes("When this is applied to source footage"),
-  "text-only preservation is phrased as applying to footage supplied later"
+  !conceptText.includes("Transform this concept"),
+  "a preserved speaker is never described as a concept"
+);
+assert(
+  conceptText.includes("Preserve the original speaker exactly as filmed"),
+  "preservation keeps its direct phrasing"
+);
+assert(
+  conceptText.includes("attached source video"),
+  "the transcription protocol points at the clip the user attaches downstream"
 );
 
 console.log("Preset-only project (no video, no text, no instructions):");
