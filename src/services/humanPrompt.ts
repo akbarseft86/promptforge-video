@@ -112,7 +112,7 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       );
     if (!fid.allow_face_smoothing)
       fidLines.push(
-        `Do not smooth, denoise, retouch, or beautify the face. Preserve the original skin texture, pores, and fine facial detail.`
+        `Apply no beauty filter, skin smoothing, denoising, or retouching. Leave the subject exactly as the camera captured them.`
       );
     if (fid.preserve_source_resolution)
       fidLines.push(

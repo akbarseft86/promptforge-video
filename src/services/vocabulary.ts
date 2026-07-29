@@ -106,7 +106,7 @@ export const CONSTRAINT_PHRASES: Record<string, string> = {
   no_subject_blur:
     "Do NOT blur, soften, or defocus the speaker — no depth-of-field, bokeh, haze, glow, or particles over the face or body.",
   no_facial_detail_loss:
-    "Do NOT smooth, denoise, retouch, or beautify the face — keep the original skin texture and facial detail.",
+    "Do NOT apply beauty filters, skin smoothing, denoising, or retouching.",
   no_resolution_loss:
     "Do NOT reduce the sharpness, detail, or resolution of the original footage.",
   no_source_distortion: "Do NOT distort the original footage.",
