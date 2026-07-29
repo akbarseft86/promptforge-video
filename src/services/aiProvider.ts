@@ -7,11 +7,23 @@
  * the deterministic local pipeline.
  */
 
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  speaker_id: string;
+  text: string;
+}
+
 export interface TranscriptionResult {
   text: string;
   language?: string;
   speakers: { id: string; label: string }[];
   words?: { word: string; start: number; end: number; speaker_id: string }[];
+  segments?: TranscriptSegment[];
+  /** "estimated" means timings come from the model, not forced alignment. */
+  timing_precision?: "estimated" | "aligned";
+  /** True when the source was longer than the server's audio cap. */
+  truncated?: boolean;
   confidence?: number;
 }
 
@@ -33,6 +45,15 @@ export interface VideoAnalysisResult {
   recommended_preset_id?: string;
 }
 
+export interface ServerStatus {
+  ok: boolean;
+  aiConfigured: boolean;
+  model?: string;
+}
+
+/** Thrown for failures worth showing the user, rather than silently degrading. */
+export class AiError extends Error {}
+
 async function post<T>(path: string, body: unknown): Promise<T | null> {
   try {
     const res = await fetch(path, {
@@ -40,15 +61,52 @@ async function post<T>(path: string, body: unknown): Promise<T | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new AiError(detail?.error ?? `request failed (${res.status})`);
+    }
     return (await res.json()) as T;
-  } catch {
+  } catch (err) {
+    if (err instanceof AiError) throw err;
     return null;
   }
 }
 
+export const MediaService = {
+  /**
+   * Streams the file to the API as a raw body (the server writes it straight
+   * to a temp file). Returns the id the analysis endpoints key off.
+   */
+  upload: async (file: File): Promise<string> => {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-File-Name": file.name.replace(/[^\w.\- ]+/g, "_"),
+      },
+      body: file,
+    });
+    if (res.status === 413) {
+      throw new AiError(
+        "The video is too large to send for analysis (the proxy caps request " +
+          "bodies at ~100 MB). Trim or compress it, or use Manual Locked transcript."
+      );
+    }
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new AiError(detail?.error ?? `upload failed (${res.status})`);
+    }
+    const { uploadId } = (await res.json()) as { uploadId: string };
+    return uploadId;
+  },
+
+  /** Best-effort: the server also sweeps on a TTL. */
+  discard: (uploadId: string) => {
+    void post("/api/discard", { uploadId }).catch(() => null);
+  },
+};
+
 export const TranscriptionService = {
-  /** Returns null when no backend/AI gateway is configured. */
   transcribe: (uploadId: string) =>
     post<TranscriptionResult>("/api/transcribe", { uploadId }),
 };
@@ -59,12 +117,20 @@ export const VideoAnalysisService = {
 };
 
 export const ServerHealth = {
-  check: async (): Promise<boolean> => {
+  /** Full status, or null when the API is unreachable. */
+  status: async (): Promise<ServerStatus | null> => {
     try {
       const res = await fetch("/api/health");
-      return res.ok;
+      if (!res.ok) return null;
+      return (await res.json()) as ServerStatus;
     } catch {
-      return false;
+      return null;
     }
+  },
+
+  /** True only when the gateway is actually usable, not merely reachable. */
+  check: async (): Promise<boolean> => {
+    const s = await ServerHealth.status();
+    return Boolean(s?.ok && s.aiConfigured);
   },
 };

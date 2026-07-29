@@ -3,3 +3,6 @@ dist
 .env
 .env.local
 *.log
+
+# Local agent tooling / worktrees
+.claude/

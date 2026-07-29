@@ -20,7 +20,7 @@ Build: `npm run build` (type-checks + bundles to `dist/`).
 ## What works in this MVP
 
 - **Four input modes** — text only, video + prompt, video + manual transcript,
-  and full-auto (auto mode's transcription requires the AI backend).
+  and full-auto (auto mode's transcription requires the AI backend; see below).
 - **Video upload** with client-side metadata extraction (duration, resolution,
   aspect ratio, size) and inline preview. Files are never persisted.
 - **Locked transcript system** — a manual transcript is the immutable source of
@@ -57,20 +57,46 @@ Build: `npm run build` (type-checks + bundles to `dist/`).
 - **Local persistence** of the last project, inputs, presets, and model
   preferences; "Clear Local Data" in Settings.
 
-## What requires wiring the AI backend
+## The AI backend
 
-`server/index.mjs` is a zero-dependency API stub that owns all gateway
-communication (9Router by default; the provider adapter is swappable). Set
-`NINEROUTER_API_KEY` and implement `provider.complete()` plus a media pipeline
-(audio extraction → transcription → diarization → word alignment → semantic
-analysis) to light up:
+`server/index.mjs` is a zero-dependency API layer (node:http + ffmpeg) that owns
+all gateway communication — 9Router by default, and the provider adapter is
+swappable. Configure it with:
 
-- automatic transcription with word-level timestamps
-- speaker diarization
-- scene/semantic video analysis and AI-driven preset recommendation
+```bash
+NINEROUTER_API_KEY=…                       # required
+NINEROUTER_BASE_URL=https://api.9router.com/v1
+NINEROUTER_MODEL=gemini/gemini-3.5-flash   # must be multimodal (audio + image)
+```
+
+`ffmpeg` and `ffprobe` must be on PATH.
+
+| Endpoint | Does |
+| --- | --- |
+| `GET /api/health` | reachability + whether the gateway is configured |
+| `POST /api/upload` | raw binary body → temp file, returns an `uploadId` |
+| `POST /api/transcribe` | ffmpeg extracts mono 16 kHz audio → model transcribes and separates speakers |
+| `POST /api/analyze-video` | ffmpeg samples 8 keyframes → model returns scene/framing/insight analysis |
+| `POST /api/discard` | deletes the upload immediately |
+
+Uploads live in a temp dir and are deleted as soon as the client is done; a
+sweep also removes anything older than `UPLOAD_TTL_MS` (default 30 min),
+scanning the directory by mtime so a restart cannot orphan files.
+
+**Timing accuracy.** The gateway has no word-level ASR, so word timings are
+interpolated across each returned segment and reported as
+`timing_precision: "estimated"`. They are fine for pacing captions, but they
+are not forced alignment — the locked-transcript guarantee comes from
+**Manual Locked** entry, which never depends on the model.
+
+**Upload size.** The client caps at 500 MB, but a proxy in front (e.g.
+Cloudflare) may cap request bodies far lower — ~100 MB is typical. The upload
+call surfaces a 413 as a readable error.
 
 The frontend detects backend availability via `/api/health` and degrades
-gracefully to the deterministic local pipeline when it's absent.
+gracefully to the deterministic local pipeline when it's absent: every step of
+the AI pass is non-fatal, and any problem is surfaced as a note beside the
+Generate button rather than blocking generation.
 
 ## Architecture
 

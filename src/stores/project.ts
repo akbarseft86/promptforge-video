@@ -19,6 +19,13 @@ import {
   validateProject,
   ValidationResult,
 } from "../features/validator/validate";
+import {
+  MediaService,
+  TranscriptionService,
+  VideoAnalysisService,
+  AiError,
+  VideoAnalysisResult,
+} from "../services/aiProvider";
 
 export type TranscriptMode = "manual" | "auto" | "none";
 
@@ -88,6 +95,11 @@ interface ProjectState {
   preservation: SpeakerPreservation;
   source: Source;
   videoObjectUrl: string | null;
+  /** Kept out of persistence: needed to send the media to the API for analysis. */
+  videoFile: File | null;
+  /** Non-fatal note from the AI pass (fell back, truncated, estimated timings). */
+  aiNotice: string | null;
+  analysis: VideoAnalysisResult | null;
   platformTargets: UniversalVideoProject["output"]["platform_targets"];
   targetDurationSeconds: number;
   /** In-place tweaks to the selected preset; cleared by "Reset to preset defaults". */
@@ -119,6 +131,7 @@ interface ProjectState {
   removeSpeaker: (id: string) => void;
   togglePreservation: (key: keyof SpeakerPreservation) => void;
   refreshRecommendation: () => void;
+  runAiPass: (file: File) => Promise<void>;
   generate: () => Promise<void>;
   updateProject: (updater: (p: UniversalVideoProject) => UniversalVideoProject) => void;
   applyRawJson: (text: string) => void;
@@ -180,6 +193,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   preservation: DEFAULT_PRESERVATION,
   source: DEFAULT_SOURCE,
   videoObjectUrl: null,
+  videoFile: null,
+  aiNotice: null,
+  analysis: null,
   platformTargets: ["instagram_reels", "tiktok", "youtube_shorts"],
   targetDurationSeconds: 15,
   presetOverrides: {},
@@ -259,44 +275,105 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     });
   },
 
-  generate: async () => {
-    const s = get();
-    const steps: ProcessingState[] =
-      s.source.media_type === "video"
-        ? [
-            "extracting_audio",
-            "analyzing_vocal",
-            "transcribing",
-            "detecting_speakers",
-            "analyzing_scenes",
-            "understanding_content",
-            "building_timeline",
-            "generating_json",
-            "validating",
-          ]
-        : ["understanding_content", "building_timeline", "generating_json", "validating"];
+  /**
+   * Upload → transcribe → analyse. Every failure here is non-fatal: the note
+   * is surfaced via `aiNotice` and generation proceeds deterministically, so
+   * a gateway outage degrades the result instead of blocking it.
+   */
+  runAiPass: async (file: File) => {
+    const notes: string[] = [];
+    let uploadId: string | null = null;
 
     try {
-      for (const step of steps.slice(0, -2)) {
-        set({ processing: step, processingError: null });
-        await new Promise((r) => setTimeout(r, 120));
+      set({ processing: "uploading" });
+      uploadId = await MediaService.upload(file);
+
+      if (get().transcriptMode === "auto") {
+        set({ processing: "extracting_audio" });
+        set({ processing: "transcribing" });
+        const t = await TranscriptionService.transcribe(uploadId);
+
+        if (t && t.text.trim()) {
+          set({ processing: "detecting_speakers" });
+          set({
+            autoTranscript: t.text,
+            language: get().language || t.language || "",
+            speakers: t.speakers.length ? t.speakers : get().speakers,
+          });
+          if (t.truncated) {
+            notes.push("only the first 20 minutes of audio were transcribed");
+          }
+          if (t.timing_precision === "estimated") {
+            notes.push(
+              "caption timings are model-estimated, not forced-aligned — " +
+                "use Manual Locked for word-exact captions"
+            );
+          }
+        } else {
+          notes.push("no intelligible speech was found in the audio");
+        }
       }
+
+      set({ processing: "analyzing_scenes" });
+      const a = await VideoAnalysisService.analyze(uploadId);
+      if (a) {
+        set({ processing: "understanding_content", analysis: a });
+        if (
+          a.recommended_preset_id &&
+          get().allPresets().some((p) => p.id === a.recommended_preset_id)
+        ) {
+          set({
+            recommendedPresetId: a.recommended_preset_id,
+            recommendationReason: "Recommended from the video's own content.",
+          });
+        }
+      }
+    } catch (err) {
+      notes.push(
+        err instanceof AiError
+          ? err.message
+          : `AI analysis unavailable (${err instanceof Error ? err.message : String(err)})`
+      );
+    } finally {
+      if (uploadId) MediaService.discard(uploadId);
+      if (notes.length) set({ aiNotice: notes.join("; ") });
+    }
+  },
+
+  generate: async () => {
+    const s = get();
+
+    try {
+      set({ processing: "idle", processingError: null, aiNotice: null });
+
+      // The AI pass only earns its keep when there is media to look at. Without
+      // it — or if any step fails — generation continues on the deterministic
+      // local pipeline, which never depends on the gateway.
+      if (s.source.media_type === "video" && s.videoFile) {
+        await get().runAiPass(s.videoFile);
+      }
+
+      set({ processing: "building_timeline" });
+      await new Promise((r) => setTimeout(r, 60));
       set({ processing: "generating_json" });
 
+      // Re-read: the AI pass may have written the transcript, speakers and
+      // language since `s` was captured.
+      const cur = get();
       const project = generateUniversalProject({
-        projectName: s.projectName,
-        instructions: s.instructions,
-        customStyle: s.customStyle,
-        preset: get().selectedPreset(),
-        transcriptMode: s.transcriptMode,
-        manualTranscript: s.manualTranscript,
-        autoTranscript: s.autoTranscript,
-        language: s.language || undefined,
-        speakers: s.speakers,
-        preservation: s.preservation,
-        source: s.source,
-        platformTargets: s.platformTargets,
-        targetDurationSeconds: s.targetDurationSeconds,
+        projectName: cur.projectName,
+        instructions: cur.instructions,
+        customStyle: cur.customStyle,
+        preset: cur.selectedPreset(),
+        transcriptMode: cur.transcriptMode,
+        manualTranscript: cur.manualTranscript,
+        autoTranscript: cur.autoTranscript,
+        language: cur.language || undefined,
+        speakers: cur.speakers,
+        preservation: cur.preservation,
+        source: cur.source,
+        platformTargets: cur.platformTargets,
+        targetDurationSeconds: cur.targetDurationSeconds,
       });
 
       set({ processing: "validating" });

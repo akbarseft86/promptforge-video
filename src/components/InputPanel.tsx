@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useProjectStore, ProcessingState } from "../stores/project";
 import { Preset } from "../schemas/universal";
+import { ServerHealth } from "../services/aiProvider";
 
 /** Custom presets group under "Custom"; built-ins under their own category. */
 const groupOf = (p: Preset) =>
@@ -34,6 +35,12 @@ export default function InputPanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  /** null while unknown — the auto-transcript copy depends on it. */
+  const [aiReady, setAiReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    ServerHealth.check().then(setAiReady);
+  }, []);
 
   const handleFile = useCallback(
     (file: File) => {
@@ -56,6 +63,7 @@ export default function InputPanel() {
         const g = w && h ? gcd(w, h) : 1;
         s.set({
           videoObjectUrl: url,
+          videoFile: file,
           source: {
             media_type: "video",
             file_name: safeName,
@@ -120,7 +128,12 @@ export default function InputPanel() {
               aria-label="Remove video"
               onClick={() => {
                 if (s.videoObjectUrl) URL.revokeObjectURL(s.videoObjectUrl);
-                s.set({ source: { media_type: "text_only" }, videoObjectUrl: null });
+                s.set({
+                  source: { media_type: "text_only" },
+                  videoObjectUrl: null,
+                  videoFile: null,
+                  analysis: null,
+                });
               }}
             >
               ✕
@@ -203,7 +216,16 @@ export default function InputPanel() {
             />
           </div>
         )}
-        {s.transcriptMode === "auto" && (
+        {s.transcriptMode === "auto" && aiReady === true && (
+          <p className="text-[11px] text-zinc-500">
+            The audio is transcribed on Generate, and speakers are separated by
+            voice. Timings are model-estimated rather than force-aligned, so
+            captions can drift by a fraction of a second — for a guaranteed
+            word-for-word match use <strong>Manual Locked</strong>. A video is
+            required, and clearly articulated speech markedly improves the result.
+          </p>
+        )}
+        {s.transcriptMode === "auto" && aiReady === false && (
           <p className="text-[11px] text-amber-500/90">
             ⚠ The AI backend is not connected, so nothing is transcribed here. Captions
             cannot be word-locked — the prompt will instead order the video model to
@@ -211,6 +233,11 @@ export default function InputPanel() {
             guaranteed word-for-word match, use <strong>Manual Locked</strong>.
             Whichever you pick, clearly articulated speech in the source video
             markedly improves the result.
+          </p>
+        )}
+        {s.transcriptMode === "auto" && s.source.media_type !== "video" && (
+          <p className="text-[11px] text-amber-500/90 mt-1.5">
+            ⚠ No video attached — there is no audio to transcribe.
           </p>
         )}
         {s.transcriptMode === "none" && (
@@ -448,6 +475,11 @@ export default function InputPanel() {
               retry
             </button>
           </p>
+        )}
+        {/* The AI pass degrades rather than fails, so its caveats are a note,
+            not an error — the JSON below is still valid. */}
+        {s.aiNotice && s.processing === "complete" && (
+          <p className="text-[11px] text-amber-500/90 mt-2">⚠ {s.aiNotice}</p>
         )}
         {busy && (
           <div className="mt-2 h-1 rounded bg-panel2 overflow-hidden" aria-hidden>
