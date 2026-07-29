@@ -26,6 +26,15 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   const blocks: string[] = [];
   const bullets = (items: string[]) => items.map((i) => `• ${i}`).join("\n");
 
+  // A rule stated once reads as a specification; the same rule restated in
+  // three sections reads as insistence, and a wall of prohibitions around a
+  // real person's face and voice resembles the shape of a request video
+  // models refuse. Sections mark what they already cover so the closing
+  // constraint list carries only what is left.
+  type ConstraintKey = keyof typeof p.constraints;
+  const covered = new Set<ConstraintKey>();
+  const cover = (...keys: ConstraintKey[]) => keys.forEach((k) => covered.add(k));
+
   // ---------- 1. Opening transformation statement ----------
   const hasVideo = p.source.media_type === "video";
   // Someone is speaking on camera whenever the edit is built around keeping a
@@ -94,6 +103,13 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
         ? `Preserve the original speaker exactly as filmed. Keep the ${joinNatural(preserved)} unchanged.`
         : `Preserve the speaker exactly as filmed: keep the ${joinNatural(preserved)} unchanged.`
     );
+    // The list above already names each locked attribute.
+    if (p.speaker_preservation.identity) cover("no_identity_change");
+    if (p.speaker_preservation.voice) cover("no_voice_change");
+    if (p.speaker_preservation.clothing) cover("no_wardrobe_change");
+    if (p.speaker_preservation.lip_sync) cover("no_lip_sync_change");
+    if (p.speaker_preservation.body_proportions) cover("no_body_proportion_change");
+    if (p.speaker_preservation.original_language) cover("no_translation");
   }
 
   // ---------- 2b. Image fidelity ----------
@@ -118,10 +134,12 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       fidLines.push(
         `Match the sharpness and detail of the source footage. The result must never look softer, hazier, or lower-resolution than the original.`
       );
-    if (fidLines.length)
+    if (fidLines.length) {
       blocks.push(
-        `IMAGE FIDELITY — THE SPEAKER MUST STAY SHARP.\n${fidLines.map((l) => `• ${l}`).join("\n")}`
+        `Image fidelity — the speaker must stay sharp:\n${fidLines.map((l) => `• ${l}`).join("\n")}`
       );
+      cover("no_subject_blur", "no_facial_detail_loss", "no_resolution_loss");
+    }
   }
 
   // ---------- 3. Background replacement ----------
@@ -185,6 +203,12 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       noList.push("Do NOT generate keywords.");
     if (noList.length) {
       blocks.push(noList.join("\n"));
+      cover(
+        "no_dialogue_rewrite",
+        "no_missing_dialogue",
+        "no_translation",
+        "no_keyword_substitution"
+      );
       blocks.push(
         `Every displayed word must exactly match the original spoken audio.`
       );
@@ -243,6 +267,9 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       );
 
     blocks.push(`Caption behavior:\n${bullets(behavior)}`);
+    if (!c.allow_future_dialogue) cover("no_future_dialogue");
+    if (c.prevent_face_overlap) cover("no_caption_face_overlap");
+    if (c.typography) cover("no_unreadable_text");
   } else if (hasTranscript && p.transcript.text.trim()) {
     // No captions module, but a locked transcript still governs the dialogue.
     blocks.push(
@@ -314,7 +341,7 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
 
     blocks.push(
       [
-        `CRITICAL — THE ON-SCREEN TEXT MUST MATCH THE SPOKEN AUDIO EXACTLY.`,
+        `The on-screen text must match the spoken audio exactly.`,
         ``,
         `On-screen text is requested, but the dialogue has NOT been transcribed yet, so no transcript is supplied with this prompt. You must derive it from the source audio yourself using this protocol:`,
         ``,
@@ -328,6 +355,15 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       ]
         .filter((l): l is string => l !== null)
         .join("\n")
+    );
+    // The protocol's own prohibition list already states these.
+    cover(
+      "no_dialogue_rewrite",
+      "no_missing_dialogue",
+      "no_added_dialogue",
+      "no_dialogue_repetition",
+      "no_translation",
+      "no_keyword_substitution"
     );
   }
 
@@ -411,8 +447,8 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   }
 
   // ---------- 11. Negative constraints ----------
-  const negatives = (Object.keys(p.constraints) as (keyof typeof p.constraints)[])
-    .filter((k) => p.constraints[k])
+  const negatives = (Object.keys(p.constraints) as ConstraintKey[])
+    .filter((k) => p.constraints[k] && !covered.has(k))
     .map((k) => CONSTRAINT_PHRASES[k])
     .filter(Boolean);
   if (negatives.length)

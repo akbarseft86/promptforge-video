@@ -118,7 +118,7 @@ assert(
 );
 const ntPrompt = generateHumanPrompt(noTranscript);
 assert(
-  ntPrompt.includes("THE ON-SCREEN TEXT MUST MATCH THE SPOKEN AUDIO EXACTLY"),
+  ntPrompt.includes("The on-screen text must match the spoken audio exactly."),
   "prompt leads with the audio-match requirement"
 );
 assert(
@@ -179,16 +179,16 @@ assert(
   "a preserved on-camera speaker reads as talking-head, with or without a transcript"
 );
 assert(
-  thText.includes("IMAGE FIDELITY — THE SPEAKER MUST STAY SHARP"),
+  thText.includes("Image fidelity — the speaker must stay sharp"),
   "sharpness block present when a person must survive the edit"
 );
 assert(
-  thText.indexOf("IMAGE FIDELITY") < thText.indexOf("Replace the original background"),
+  thText.indexOf("Image fidelity") < thText.indexOf("Replace the original background"),
   "sharpness is stated before background replacement, not after"
 );
 assert(
   thText.includes("BACKGROUND ONLY") &&
-    thText.includes("Do NOT blur, soften, or defocus the speaker"),
+    thText.includes("Keep the speaker tack sharp"),
   "depth effects are scoped to background and subject blur is forbidden"
 );
 assert(
@@ -340,10 +340,39 @@ for (const section of [
   "Create immersive cinematic sound design:",
   "Background music:",
   "Negative Constraints:",
-  "Do NOT change the speaker's clothing or wardrobe colors.",
   "Final output should look like",
 ]) {
   assert(human.includes(section), `prompt contains "${section.slice(0, 40)}"`);
+}
+
+// Each rule is stated once. Repeating locks on a real person's face and
+// voice across three sections reads as insistence rather than specification.
+{
+  const countOf = (needle: string) => human.split(needle).length - 1;
+  // Each lock is named once, in the preservation list — the closing
+  // constraint list must not restate it. ("original voice" legitimately
+  // recurs under sound mixing, which is a different instruction.)
+  for (const [restated, label] of [
+    ["Do NOT modify the original voice", "voice"],
+    ["Do NOT alter lip sync", "lip sync"],
+    ["Do NOT alter the speaker's body proportions", "body proportions"],
+    ["Do NOT change the speaker's clothing", "wardrobe"],
+    ["Do NOT change the speaker's identity", "identity"],
+  ] as const) {
+    assert(countOf(restated) === 0, `${label} lock is not restated as a prohibition`);
+  }
+  for (const attr of ["original voice", "original lip sync", "original clothing"]) {
+    assert(human.includes(attr), `${attr} is still stated in the preservation list`);
+  }
+  const prohibitions = human.split("\n").filter((l) => /do not/i.test(l)).length;
+  assert(
+    prohibitions <= 20,
+    `prohibition count stays moderate (${prohibitions} lines)`
+  );
+  assert(
+    !/^[A-Z][A-Z ,—-]{15,}$/m.test(human),
+    "no shouted all-caps section headers"
+  );
 }
 
 // The spoken lines must close the prompt, not sit in its middle.
