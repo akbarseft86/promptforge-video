@@ -4,6 +4,10 @@ import { UniversalVideoProject } from "../schemas/universal";
 import { generateHumanPrompt, PromptOptions } from "../services/humanPrompt";
 import { ADAPTERS } from "../adapters";
 import { copyToClipboard } from "../utils/clipboard";
+import {
+  ENVIRONMENT_OPTIONS,
+  ENVIRONMENT_VALUES,
+} from "../features/presets/environments";
 
 type Tab = "visual" | "json" | "validate" | "export";
 
@@ -200,13 +204,58 @@ export default function EditorPanel() {
               onChange={(e) => up((proj) => (proj.visual_direction.style = e.target.value))}
             />
             <label className="field-label">Environment</label>
-            <input
-              className="text-input mb-2"
-              value={p.visual_direction.environment ?? ""}
-              onChange={(e) =>
-                up((proj) => (proj.visual_direction.environment = e.target.value || undefined))
-              }
-            />
+            {(() => {
+              const env = p.visual_direction.environment ?? "";
+              // Anything not in the list is treated as a custom entry, so a
+              // preset's own wording or a hand-typed one is never clobbered.
+              const isListed = env === "" || ENVIRONMENT_VALUES.includes(env);
+              return (
+                <>
+                  <select
+                    className="text-input mb-2"
+                    value={isListed ? env : "__custom__"}
+                    aria-label="Environment"
+                    onChange={(e) =>
+                      up((proj) => {
+                        const v = e.target.value;
+                        proj.visual_direction.environment =
+                          v === "__custom__"
+                            ? (proj.visual_direction.environment ?? "") || " "
+                            : v || undefined;
+                      })
+                    }
+                  >
+                    <option value="">Keep the original setting</option>
+                    {ENVIRONMENT_OPTIONS.map((g) => (
+                      <optgroup key={g.group} label={g.group}>
+                        {g.items.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    <option value="__custom__">Write my own…</option>
+                  </select>
+                  {!isListed && (
+                    <input
+                      className="text-input mb-2"
+                      autoFocus
+                      placeholder="Describe the environment…"
+                      value={env.trim()}
+                      aria-label="Custom environment"
+                      onChange={(e) =>
+                        up(
+                          (proj) =>
+                            (proj.visual_direction.environment =
+                              e.target.value || " ")
+                        )
+                      }
+                    />
+                  )}
+                </>
+              );
+            })()}
             <Toggle
               label="Cinematic relighting"
               checked={p.visual_direction.cinematic_relighting}
