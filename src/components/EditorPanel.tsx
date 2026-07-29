@@ -137,6 +137,11 @@ export default function EditorPanel() {
 
       {p && tab === "visual" && (
         <div className="space-y-2.5 overflow-y-auto pr-1">
+          <p className="text-[11px] text-zinc-500">
+            Editing the generated project — changes apply immediately.
+            Pressing <strong className="text-zinc-400">Generate</strong> again
+            rebuilds it from the preset and discards them.
+          </p>
           <Section title="Preservation Locks">
             {(
               Object.keys(p.speaker_preservation) as (keyof typeof p.speaker_preservation)[]

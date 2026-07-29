@@ -281,6 +281,12 @@ export default function InputPanel() {
         {/* What the preset actually puts in the prompt, tunable in place. */}
         {selected && (
           <div className="mt-3 rounded-lg border border-line bg-panel2/50 p-3 space-y-3">
+            <p className="text-[11px] text-zinc-500 -mb-1">
+              Preset settings — these shape what{" "}
+              <strong className="text-zinc-400">Generate</strong> builds. Editing
+              them here rebuilds the whole plan; to adjust a project you have
+              already generated, use Visual Controls instead.
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
