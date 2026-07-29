@@ -1,0 +1,60 @@
+[
+  {
+    "preset_version": "1.0",
+    "id": "ai_env_swap_explainer",
+    "name": "AI Environment Swap Explainer",
+    "description": "Reverse-engineered from a Reel by @quantumfloww_media. One talking-head take, with the background replaced by a new AI-generated environment on every sentence boundary. Captions run as 2-3 word chunks over the speaker's chest. The speaker never changes; only the world around them does.",
+    "visual_style": "photoreal AI-composited environments, clean product-film lighting, soft neutral base grade, one continuous performance",
+    "environment": "a new generated setting per sentence: dotted white studio, poster-lined walkway, corridor of screens, dark showroom, bright open-plan office, retail floor, long dark table, isometric colour-blocked space",
+    "editing": {
+      "pacing": "high_retention",
+      "punch_in_frequency": "low",
+      "b_roll_frequency": "high",
+      "typography_frequency": "high",
+      "motion_graphics": true,
+      "transitions": false
+    },
+    "sound_design": {
+      "intensity": "low"
+    },
+    "music_styles": [
+      "minimal ambient bed",
+      "soft low-end pulse"
+    ],
+    "caption_style": "bold white sans-serif, tight black rounded box, 2-3 words per chunk, one chunk per ~1.2s, no emoji, no colour highlight",
+    "category": "Explainer",
+    "visual_effects": [
+      "background_replacement",
+      "subject_relighting_to_match_environment",
+      "soft_contact_shadow"
+    ],
+    "motion_elements": [
+      "speaker_walks_through_environment",
+      "environment_parallax"
+    ],
+    "camera_moves": [
+      "slow_push_in",
+      "lateral_tracking"
+    ],
+    "background_elements": [
+      "generated_3d_environment",
+      "floating_ui_panels",
+      "isometric_colour_blocks"
+    ],
+    "sfx_palette": [
+      "low_whoosh_on_environment_change"
+    ],
+    "highlight_colors": [
+      "#FFFFFF",
+      "#000000"
+    ],
+    "caption_animations": [
+      "hard_cut_in"
+    ],
+    "caption_position": "centered",
+    "typography": "heavy grotesk, tight tracking, sentence case",
+    "color_grading": "neutral, low saturation on the speaker, saturation carried by the environment",
+    "music_description": "quiet ambient pad that never competes with the voice; no drop, no build",
+    "background_replacement_default": true
+  }
+]

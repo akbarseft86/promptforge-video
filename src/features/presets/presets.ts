@@ -1,4 +1,5 @@
 import { Preset, PresetSchema } from "../../schemas/universal";
+import derivedPresets from "./derived-presets.json";
 
 type Pacing = Preset["editing"]["pacing"];
 type Punch = Preset["editing"]["punch_in_frequency"];
@@ -827,7 +828,18 @@ const SEEDS: Seed[] = [
   },
 ];
 
-export const BUILTIN_PRESETS: Preset[] = SEEDS.map(build);
+/**
+ * Presets reverse-engineered from real edits, stored as complete Preset
+ * objects rather than seeds — the shape `scripts/add-preset.ts` appends to and
+ * the same shape the app exports. Anything that fails validation is dropped
+ * rather than crashing the picker, so one bad entry cannot take out the app.
+ */
+const DERIVED_PRESETS: Preset[] = (derivedPresets as unknown[])
+  .map((p) => PresetSchema.safeParse(p))
+  .filter((r): r is { success: true; data: Preset } => r.success)
+  .map((r) => ({ ...r.data, builtin: true }));
+
+export const BUILTIN_PRESETS: Preset[] = [...SEEDS.map(build), ...DERIVED_PRESETS];
 
 export const PRESET_CATEGORIES = [
   ...new Set(BUILTIN_PRESETS.map((p) => p.category ?? "Other")),

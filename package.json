@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "server": "node server/index.mjs",
-    "test": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/smoke.mjs && node node_modules/.cache/smoke.mjs"
+    "test": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/smoke.mjs && node node_modules/.cache/smoke.mjs",
+    "add-preset": "esbuild scripts/add-preset.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/add-preset.mjs && node node_modules/.cache/add-preset.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
