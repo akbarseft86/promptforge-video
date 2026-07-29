@@ -8,6 +8,7 @@ import {
   ENVIRONMENT_OPTIONS,
   ENVIRONMENT_VALUES,
 } from "../features/presets/environments";
+import { STYLE_OPTIONS, STYLE_VALUES } from "../features/presets/styles";
 
 type Tab = "visual" | "json" | "validate" | "export";
 
@@ -198,11 +199,50 @@ export default function EditorPanel() {
 
           <Section title="Visual Direction">
             <label className="field-label">Style</label>
-            <input
-              className="text-input mb-2"
-              value={p.visual_direction.style}
-              onChange={(e) => up((proj) => (proj.visual_direction.style = e.target.value))}
-            />
+            {(() => {
+              const style = p.visual_direction.style;
+              // A custom style prompt is appended as "<preset> + custom: …",
+              // which is a legitimate value the picker must not flatten.
+              const isListed = STYLE_VALUES.includes(style);
+              return (
+                <>
+                  <select
+                    className="text-input mb-2"
+                    value={isListed ? style : "__custom__"}
+                    aria-label="Visual style"
+                    onChange={(e) =>
+                      up((proj) => {
+                        const v = e.target.value;
+                        proj.visual_direction.style =
+                          v === "__custom__" ? proj.visual_direction.style : v;
+                      })
+                    }
+                  >
+                    {STYLE_OPTIONS.map((g) => (
+                      <optgroup key={g.group} label={g.group}>
+                        {g.items.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    <option value="__custom__">Write my own…</option>
+                  </select>
+                  {!isListed && (
+                    <input
+                      className="text-input mb-2"
+                      placeholder="Describe the visual style…"
+                      value={style}
+                      aria-label="Custom visual style"
+                      onChange={(e) =>
+                        up((proj) => (proj.visual_direction.style = e.target.value))
+                      }
+                    />
+                  )}
+                </>
+              );
+            })()}
             <label className="field-label">Environment</label>
             {(() => {
               const env = p.visual_direction.environment ?? "";
