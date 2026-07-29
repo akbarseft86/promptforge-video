@@ -22,7 +22,22 @@ import {
  * the JSON — the prompt never introduces a requirement the JSON does not
  * contain, and never drops a locked constraint the JSON does contain.
  */
-export function generateHumanPrompt(p: UniversalVideoProject): string {
+export interface PromptOptions {
+  /**
+   * Timestamped per-event directions. Off by default: the documented Gemini
+   * Omni workflow generates 8–10s at a time, so a timeline spanning a whole
+   * clip cannot be honoured, and asking for it invites a capability refusal.
+   */
+  includeTimeline?: boolean;
+  /** The subject-sharpness block. */
+  includeFidelity?: boolean;
+}
+
+export function generateHumanPrompt(
+  p: UniversalVideoProject,
+  options: PromptOptions = {}
+): string {
+  const { includeTimeline = false, includeFidelity = true } = options;
   const blocks: string[] = [];
   const bullets = (items: string[]) => items.map((i) => `• ${i}`).join("\n");
 
@@ -115,7 +130,7 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   // ---------- 2b. Image fidelity ----------
   // Placed directly after preservation: stacking depth-of-field, bokeh, glow
   // and relighting reliably softens the subject unless sharpness is demanded.
-  const fid = p.image_fidelity;
+  const fid = includeFidelity ? p.image_fidelity : undefined;
   if (fid) {
     const fidLines: string[] = [];
     if (fid.preserve_subject_sharpness)
@@ -443,7 +458,7 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   );
 
   // ---------- 10. Timeline directions ----------
-  if (p.timeline.length) {
+  if (includeTimeline && p.timeline.length) {
     const lines = p.timeline.map((e) => {
       const what =
         e.type === "sound_effect"

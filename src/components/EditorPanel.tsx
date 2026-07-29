@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useProjectStore } from "../stores/project";
 import { UniversalVideoProject } from "../schemas/universal";
-import { generateHumanPrompt } from "../services/humanPrompt";
+import { generateHumanPrompt, PromptOptions } from "../services/humanPrompt";
 import { ADAPTERS } from "../adapters";
 import { copyToClipboard } from "../utils/clipboard";
 
@@ -60,6 +60,7 @@ export default function EditorPanel() {
   const [copied, setCopied] = useState<string | null>(null);
   const p = s.project;
 
+  const [promptOpts, setPromptOpts] = useState<PromptOptions>({});
   const [copyFailed, setCopyFailed] = useState<string | null>(null);
   const copy = async (text: string, key: string) => {
     const ok = await copyToClipboard(text);
@@ -421,6 +422,30 @@ export default function EditorPanel() {
 
       {p && tab === "export" && (
         <div className="space-y-3 overflow-y-auto">
+          <div className="rounded-lg border border-line bg-panel2/50 p-3">
+            <span className="field-label">Prompt sections</span>
+            <Toggle
+              label="Timeline directions (timestamped events)"
+              checked={promptOpts.includeTimeline ?? false}
+              onChange={(v) =>
+                setPromptOpts({ ...promptOpts, includeTimeline: v })
+              }
+            />
+            <Toggle
+              label="Image fidelity (keep the speaker sharp)"
+              checked={promptOpts.includeFidelity ?? true}
+              onChange={(v) =>
+                setPromptOpts({ ...promptOpts, includeFidelity: v })
+              }
+            />
+            <p className="text-[11px] text-zinc-600 mt-1">
+              Turn these off one at a time if a video tool refuses the prompt —
+              they are the sections most likely to describe editing it cannot
+              perform. Timeline is off by default because Gemini Omni renders
+              8–10s per generation and cannot honour clip-wide timings.
+            </p>
+          </div>
+
           <div className="flex gap-2 flex-wrap">
             <button
               className="btn-primary text-xs"
@@ -433,7 +458,7 @@ export default function EditorPanel() {
             </button>
             <button
               className="btn-ghost text-xs"
-              onClick={() => copy(generateHumanPrompt(p), "human")}
+              onClick={() => copy(generateHumanPrompt(p, promptOpts), "human")}
             >
               {copied === "human" ? "✓ Copied" : "Copy Human Prompt"}
             </button>

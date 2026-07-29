@@ -375,6 +375,37 @@ for (const section of [
   );
 }
 
+// Optional sections must be genuinely optional, so a refusing tool can be
+// bisected without hand-editing the prompt.
+{
+  assert(
+    !human.includes("Timeline directions:"),
+    "timestamped timeline is omitted by default"
+  );
+  assert(
+    generateHumanPrompt(project, { includeTimeline: true }).includes(
+      "Timeline directions:"
+    ),
+    "timeline can be switched back on"
+  );
+  assert(
+    human.includes("Image fidelity — the speaker must stay sharp"),
+    "fidelity block is on by default"
+  );
+  assert(
+    !generateHumanPrompt(project, { includeFidelity: false }).includes(
+      "Image fidelity"
+    ),
+    "fidelity block can be switched off"
+  );
+  // Turning a section off must not silently drop its rules from the JSON.
+  assert(
+    project.image_fidelity?.preserve_subject_sharpness === true &&
+      project.timeline.length > 0,
+    "the underlying JSON keeps both regardless of prompt options"
+  );
+}
+
 // The spoken lines must close the prompt, not sit in its middle.
 {
   assert(
