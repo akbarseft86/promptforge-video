@@ -19,6 +19,7 @@ import {
   validateProject,
   ValidationResult,
 } from "../features/validator/validate";
+import { AutoFix, safeFixes } from "../features/validator/autofix";
 import {
   MediaService,
   TranscriptionService,
@@ -136,6 +137,8 @@ interface ProjectState {
   updateProject: (updater: (p: UniversalVideoProject) => UniversalVideoProject) => void;
   applyRawJson: (text: string) => void;
   runValidation: () => void;
+  applyFix: (fix: AutoFix) => void;
+  applyAllSafeFixes: () => number;
   saveCustomPreset: (preset: Preset) => void;
   deleteCustomPreset: (id: string) => void;
   clearLocalData: () => void;
@@ -437,6 +440,46 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
     if (!s.project) return;
     set({ validation: validateProject(s.project) });
+  },
+
+  /** Applies one repair, then re-validates so the list reflects the result. */
+  applyFix: (fix) => {
+    const current = get().project;
+    if (!current) return;
+    const next = fix.apply(structuredClone(current));
+    set({
+      project: next,
+      rawJsonDraft: JSON.stringify(next, null, 2),
+      rawJsonError: null,
+      validation: validateProject(next),
+    });
+    persistInputs(get());
+  },
+
+  /**
+   * Applies every non-lossy repair in one pass. Re-derives the fix list after
+   * each step: a repair can resolve or reshape later findings.
+   */
+  applyAllSafeFixes: () => {
+    let current = get().project;
+    if (!current) return 0;
+    let applied = 0;
+    // Bounded so a fix that fails to clear its own finding cannot loop.
+    for (let pass = 0; pass < 12; pass++) {
+      const pending = safeFixes(validateProject(current), current);
+      if (!pending.length) break;
+      current = pending[0].apply(structuredClone(current));
+      applied++;
+    }
+    if (!applied) return 0;
+    set({
+      project: current,
+      rawJsonDraft: JSON.stringify(current, null, 2),
+      rawJsonError: null,
+      validation: validateProject(current),
+    });
+    persistInputs(get());
+    return applied;
   },
 
   saveCustomPreset: (preset) => {

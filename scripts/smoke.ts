@@ -4,6 +4,7 @@ import { generateHumanPrompt } from "../src/services/humanPrompt";
 import { ADAPTERS } from "../src/adapters";
 import { BUILTIN_PRESETS } from "../src/features/presets/presets";
 import { applyOverrides } from "../src/stores/project";
+import { fixFor, safeFixes } from "../src/features/validator/autofix";
 
 const locked =
   "burung pipit, hinggap di dahan, terbang rendah, mencari padi, dunia sibuk jangan jadikan beban, pakai AI, konten jadi setiap hari";
@@ -456,6 +457,184 @@ assert(
     !npText.includes("Do NOT change the speaker's clothing"),
   "wardrobe lines omitted when clothing preservation is off"
 );
+
+// ──────── auto-fix ────────
+// Each fix must actually clear the finding it is offered for, and must never
+// introduce a new error.
+const findingTitles = (p: any) => validateProject(p).map((r) => r.title);
+
+{
+  // Constraint drift: the fix reconciles the two fields.
+  const drifted = structuredClone(project);
+  drifted.constraints.no_wardrobe_change = !drifted.speaker_preservation.clothing;
+  const drift = validateProject(drifted).find(
+    (r) => r.title === "Constraint Drift — Wardrobe"
+  );
+  assert(!!drift, "constraint drift is detected");
+  const fix = fixFor(drift!, drifted);
+  assert(!!fix && !fix.lossy, "constraint drift has a non-lossy fix");
+  const fixed = fix!.apply(structuredClone(drifted));
+  assert(
+    !findingTitles(fixed).includes("Constraint Drift — Wardrobe"),
+    "constraint drift fix clears the finding"
+  );
+}
+
+{
+  // Aspect ratio: vertical platforms get 9:16.
+  const wrongRatio = structuredClone(project);
+  wrongRatio.output.aspect_ratio = "16:9";
+  const finding = validateProject(wrongRatio).find(
+    (r) => r.title === "Aspect Ratio vs Platform"
+  );
+  assert(!!finding, "aspect ratio mismatch is detected");
+  const fixed = fixFor(finding!, wrongRatio)!.apply(structuredClone(wrongRatio));
+  assert(fixed.output.aspect_ratio === "9:16", "aspect ratio fix sets 9:16");
+  assert(
+    !findingTitles(fixed).includes("Aspect Ratio vs Platform"),
+    "aspect ratio fix clears the finding"
+  );
+}
+
+{
+  // Negative durations are swapped, not dropped.
+  const inverted = structuredClone(project);
+  if (inverted.timeline.length) {
+    const e = inverted.timeline[0];
+    const [a, b] = [e.start, e.end];
+    e.start = b + 1;
+    e.end = a;
+    const finding = validateProject(inverted).find(
+      (r) => r.title === "Negative Event Duration"
+    );
+    assert(!!finding, "negative duration is detected");
+    const fixed = fixFor(finding!, inverted)!.apply(structuredClone(inverted));
+    assert(
+      fixed.timeline.length === inverted.timeline.length,
+      "negative duration fix keeps every event"
+    );
+    assert(
+      !findingTitles(fixed).includes("Negative Event Duration"),
+      "negative duration fix clears the finding"
+    );
+  }
+}
+
+{
+  // Effect density: thinning terminates and reaches the limit.
+  const dense = structuredClone(project);
+  const duration = dense.source.duration_seconds ?? 30;
+  dense.timeline = Array.from({ length: 40 }, (_, i) => ({
+    id: `dense_${i}`,
+    start: Number(((i % 20) * 0.2).toFixed(2)),
+    end: Number(((i % 20) * 0.2 + 0.4).toFixed(2)),
+    type: "emphasis" as const,
+    intensity: (i % 10) / 10,
+  })).filter((e) => e.end <= duration);
+  const denseFindings = validateProject(dense);
+  assert(
+    !denseFindings.some((r) => r.title === "Schema Violation"),
+    "density fixture is schema-valid"
+  );
+  const finding = denseFindings.find((r) => r.title === "High Effect Density");
+  assert(!!finding, "high effect density is detected");
+  const fix = fixFor(finding!, dense)!;
+  assert(fix.lossy, "density fix is flagged lossy");
+  const fixed = fix.apply(structuredClone(dense));
+  assert(
+    !findingTitles(fixed).includes("High Effect Density"),
+    "density fix clears the finding"
+  );
+  assert(
+    fixed.timeline.length < dense.timeline.length,
+    "density fix removes events"
+  );
+}
+
+{
+  // Transcript-dependent text: the delegated-transcription warning clears, and
+  // nothing is left quoting a transcript that does not exist.
+  const delegated = generateUniversalProject({
+    projectName: "Autofix",
+    instructions: "add bold on-screen captions throughout",
+    customStyle: "",
+    preset: BUILTIN_PRESETS[0],
+    transcriptMode: "none",
+    manualTranscript: "",
+    autoTranscript: "",
+    speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+    preservation: project.speaker_preservation,
+    source: { media_type: "video", duration_seconds: 30 },
+    platformTargets: ["tiktok"],
+    targetDurationSeconds: 30,
+  });
+  const finding = validateProject(delegated).find(
+    (r) => r.title === "Transcription Delegated To Video Model"
+  );
+  if (finding) {
+    const fix = fixFor(finding, delegated)!;
+    assert(fix.lossy, "removing on-screen text is flagged lossy");
+    const fixed = fix.apply(structuredClone(delegated));
+    assert(
+      !findingTitles(fixed).includes("Transcription Delegated To Video Model"),
+      "on-screen text fix clears the delegated-transcription warning"
+    );
+    assert(
+      !fixed.timeline.some((e) => e.text_source === "locked_transcript"),
+      "on-screen text fix leaves nothing quoting the locked transcript"
+    );
+  }
+}
+
+{
+  // "Fix all safe issues" applies only non-lossy repairs and converges.
+  const messy = structuredClone(project);
+  messy.constraints.no_wardrobe_change = !messy.speaker_preservation.clothing;
+  messy.output.aspect_ratio = "16:9";
+  messy.audio.preserve_original_voice = !messy.speaker_preservation.voice
+    ? messy.audio.preserve_original_voice
+    : false;
+
+  let cur: any = messy;
+  let applied = 0;
+  for (let pass = 0; pass < 12; pass++) {
+    const pending = safeFixes(validateProject(cur), cur);
+    if (!pending.length) break;
+    cur = pending[0].apply(structuredClone(cur));
+    applied++;
+  }
+  assert(applied >= 2, "fix-all applies multiple safe repairs");
+  assert(
+    safeFixes(validateProject(cur), cur).length === 0,
+    "fix-all converges with no safe fixes left"
+  );
+  assert(
+    !validateProject(cur).some(
+      (r) => r.severity === "ERROR" && r.title === "Schema Violation"
+    ),
+    "fix-all never breaks the schema"
+  );
+}
+
+{
+  // Findings that would require inventing dialogue must offer no fix.
+  const mismatch: any = structuredClone(project);
+  mismatch.dialogue_timeline = [
+    { speaker_id: "speaker_1", start: 0, end: 1, text: "totally different words" },
+  ];
+  for (const r of validateProject(mismatch)) {
+    if (r.title.startsWith("Transcript Mismatch")) {
+      assert(
+        fixFor(r, mismatch) === null,
+        `no auto-fix is offered for "${r.title}"`
+      );
+    }
+  }
+  assert(
+    fixFor({ severity: "PASS", title: "Overall", detail: "" }, project) === null,
+    "the Overall summary offers no fix"
+  );
+}
 
 console.log("\n──────── GENERATED PROMPT ────────\n");
 console.log(human);

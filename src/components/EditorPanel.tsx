@@ -9,6 +9,7 @@ import {
   ENVIRONMENT_VALUES,
 } from "../features/presets/environments";
 import { STYLE_OPTIONS, STYLE_VALUES } from "../features/presets/styles";
+import { fixFor, safeFixes } from "../features/validator/autofix";
 
 type Tab = "visual" | "json" | "validate" | "export";
 
@@ -67,6 +68,9 @@ export default function EditorPanel() {
 
   const [promptOpts, setPromptOpts] = useState<PromptOptions>({});
   const [copyFailed, setCopyFailed] = useState<string | null>(null);
+  const [fixNote, setFixNote] = useState<string | null>(null);
+  const safeFixCount =
+    p && s.validation ? safeFixes(s.validation, p).length : 0;
   const copy = async (text: string, key: string) => {
     const ok = await copyToClipboard(text);
     if (ok) {
@@ -497,20 +501,64 @@ export default function EditorPanel() {
 
       {p && tab === "validate" && (
         <div className="space-y-2 overflow-y-auto">
-          <button className="btn-primary" onClick={() => s.runValidation()}>
-            ✓ Validate JSON
-          </button>
-          {s.validation?.map((r, i) => (
-            <div
-              key={i}
-              className={`rounded-lg border px-3 py-2 text-xs ${SEVERITY_STYLE[r.severity]}`}
-            >
-              <p className="font-semibold">
-                {r.severity} — {r.title}
-              </p>
-              <p className="text-zinc-400 mt-0.5">{r.detail}</p>
-            </div>
-          ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button className="btn-primary" onClick={() => s.runValidation()}>
+              ✓ Validate JSON
+            </button>
+            {safeFixCount > 0 && (
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  const n = s.applyAllSafeFixes();
+                  setFixNote(
+                    n
+                      ? `Applied ${n} fix${n === 1 ? "" : "es"}.`
+                      : "Nothing left to fix automatically."
+                  );
+                }}
+              >
+                ⚡ Fix {safeFixCount} safe issue{safeFixCount === 1 ? "" : "s"}
+              </button>
+            )}
+          </div>
+          {fixNote && <p className="text-[11px] text-primary">{fixNote}</p>}
+
+          {s.validation?.map((r, i) => {
+            const fix = p ? fixFor(r, p) : null;
+            return (
+              <div
+                key={i}
+                className={`rounded-lg border px-3 py-2 text-xs ${SEVERITY_STYLE[r.severity]}`}
+              >
+                <p className="font-semibold">
+                  {r.severity} — {r.title}
+                </p>
+                <p className="text-zinc-400 mt-0.5">{r.detail}</p>
+                {fix && (
+                  <div className="mt-2 pt-2 border-t border-white/10">
+                    {/* A lossy repair drops requested content, so say what it
+                        removes before the user commits to it. */}
+                    <p className="text-[11px] text-zinc-500 mb-1.5">
+                      {fix.lossy && (
+                        <span className="text-amber-400/90">Removes content — </span>
+                      )}
+                      {fix.effect}
+                    </p>
+                    <button
+                      className="btn-ghost text-[11px] py-1"
+                      onClick={() => {
+                        s.applyFix(fix);
+                        setFixNote(`Applied: ${fix.label}.`);
+                      }}
+                    >
+                      {fix.lossy ? "⚠ " : "⚡ "}
+                      {fix.label}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
