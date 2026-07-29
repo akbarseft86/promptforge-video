@@ -82,77 +82,72 @@ export default function InputPanel() {
     s.processing !== "error";
 
   const allPresets = s.allPresets();
+  const selected = s.basePreset();
+  const effective = s.selectedPreset();
 
   return (
     <div className="panel p-4 space-y-5 overflow-y-auto">
-      <div>
-        <span className="field-label">Video Upload</span>
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label="Upload video file"
-          onClick={() => fileRef.current?.click()}
-          onKeyDown={(e) => e.key === "Enter" && fileRef.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const f = e.dataTransfer.files?.[0];
+      {/* Video is optional — a prompt is generated from the preset alone, so
+          this stays a single compact row rather than a large drop target. */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) handleFile(f);
+        }}
+        className={`rounded-lg border px-3 py-2 transition-colors ${
+          dragOver ? "border-primary bg-primary/5" : "border-line"
+        }`}
+      >
+        {s.source.media_type === "video" ? (
+          <div className="flex items-center gap-2 text-xs min-w-0">
+            <span aria-hidden>🎬</span>
+            <span className="truncate text-zinc-300 flex-1 min-w-0">
+              {s.source.file_name}
+              <span className="text-zinc-600">
+                {" "}
+                · {s.source.duration_seconds}s · {s.source.aspect_ratio}
+              </span>
+            </span>
+            <button
+              className="text-zinc-500 hover:text-red-400 shrink-0"
+              aria-label="Remove video"
+              onClick={() => {
+                if (s.videoObjectUrl) URL.revokeObjectURL(s.videoObjectUrl);
+                s.set({ source: { media_type: "text_only" }, videoObjectUrl: null });
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <button
+            className="w-full flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300"
+            onClick={() => fileRef.current?.click()}
+          >
+            <span aria-hidden>＋</span>
+            <span>Attach source video</span>
+            <span className="ml-auto text-zinc-700">optional</span>
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
             if (f) handleFile(f);
           }}
-          className={`rounded-lg border border-dashed p-4 text-center cursor-pointer transition-colors ${
-            dragOver ? "border-primary bg-primary/5" : "border-line hover:border-primary/50"
-          }`}
-        >
-          {s.source.media_type === "video" ? (
-            <div className="text-left text-xs space-y-1">
-              <p className="font-medium text-zinc-200 truncate">{s.source.file_name}</p>
-              <p className="text-zinc-500">
-                {s.source.duration_seconds}s · {s.source.resolution} ·{" "}
-                {s.source.aspect_ratio} ·{" "}
-                {((s.source.size_bytes ?? 0) / (1024 * 1024)).toFixed(1)} MB
-              </p>
-              <button
-                className="text-primary hover:underline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (s.videoObjectUrl) URL.revokeObjectURL(s.videoObjectUrl);
-                  s.set({ source: { media_type: "text_only" }, videoObjectUrl: null });
-                }}
-              >
-                Remove video (start from text)
-              </button>
-            </div>
-          ) : (
-            <div className="py-2">
-              <p className="text-sm text-zinc-300">Drop a video here or click to browse</p>
-              <p className="text-[11px] text-zinc-600 mt-1">
-                MP4, WebM, MOV · up to 500 MB · optimized for 0–5 min clips
-              </p>
-            </div>
-          )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-            }}
-          />
-        </div>
-        {fileError && <p className="text-xs text-red-400 mt-1">{fileError}</p>}
-        {s.source.media_type === "video" && (
-          <p className="text-[11px] text-zinc-600 mt-1.5">
-            Your video is processed temporarily for analysis only and is not retained.
-          </p>
-        )}
+        />
       </div>
+      {fileError && <p className="text-xs text-red-400 -mt-3">{fileError}</p>}
 
       <div>
         <span className="field-label">Transcript</span>
@@ -272,12 +267,142 @@ export default function InputPanel() {
             </optgroup>
           ))}
         </select>
-        <p className="text-[11px] text-zinc-600 mt-1">
-          {allPresets.length} presets available
+        <p className="text-[11px] text-zinc-500 mt-1.5">
+          {selected?.description}
         </p>
-        <p className="text-[11px] text-zinc-600 mt-1">
-          {allPresets.find((p) => p.id === s.selectedPresetId)?.description}
-        </p>
+
+        {/* What the preset actually puts in the prompt, tunable in place. */}
+        {selected && (
+          <div className="mt-3 rounded-lg border border-line bg-panel2/50 p-3 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["pacing", "Pacing", ["relaxed", "standard", "high_retention", "fast"]],
+                  ["punch_in_frequency", "Punch-ins", ["off", "low", "medium", "medium_high", "high"]],
+                  ["b_roll_frequency", "B-roll", ["off", "low", "medium", "high"]],
+                  ["typography_frequency", "Typography", ["off", "low", "medium", "high"]],
+                ] as const
+              ).map(([key, label, options]) => (
+                <div key={key}>
+                  <label className="field-label" htmlFor={`ov-${key}`}>
+                    {label}
+                  </label>
+                  <select
+                    id={`ov-${key}`}
+                    className="text-input py-1 text-xs"
+                    value={effective.editing[key]}
+                    onChange={(e) =>
+                      s.set({
+                        presetOverrides: {
+                          ...s.presetOverrides,
+                          editing: {
+                            ...(s.presetOverrides.editing ?? {}),
+                            [key]: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  >
+                    {options.map((o) => (
+                      <option key={o} value={o}>
+                        {o.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <span className="field-label">Sound design</span>
+              <div className="flex gap-1">
+                {(["low", "medium", "high"] as const).map((lvl) => (
+                  <button
+                    key={lvl}
+                    onClick={() =>
+                      s.set({
+                        presetOverrides: {
+                          ...s.presetOverrides,
+                          sfxIntensity: lvl,
+                        },
+                      })
+                    }
+                    className={`tab-btn flex-1 ${
+                      effective.sound_design.intensity === lvl
+                        ? "bg-primary/15 text-primary"
+                        : "bg-panel2 text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <span className="field-label">Background</span>
+              <label className="flex items-center justify-between text-xs cursor-pointer">
+                <span className="text-zinc-300">Replace background</span>
+                <input
+                  type="checkbox"
+                  className="accent-violet-500 h-3.5 w-3.5"
+                  checked={effective.background_replacement_default ?? false}
+                  onChange={(e) =>
+                    s.set({
+                      presetOverrides: {
+                        ...s.presetOverrides,
+                        backgroundReplacement: e.target.checked,
+                      },
+                    })
+                  }
+                />
+              </label>
+              <p className="text-[11px] text-zinc-600 mt-1">
+                {effective.environment ?? "Keeps the original setting."}
+              </p>
+            </div>
+
+            {!!effective.visual_effects?.length && (
+              <div>
+                <span className="field-label">Visual effects</span>
+                <div className="flex flex-wrap gap-1">
+                  {effective.visual_effects.map((fx) => (
+                    <span
+                      key={fx}
+                      className="chip bg-panel2 border border-line text-zinc-400"
+                    >
+                      {fx.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!!effective.sfx_palette?.length && (
+              <div>
+                <span className="field-label">SFX palette</span>
+                <div className="flex flex-wrap gap-1">
+                  {effective.sfx_palette.map((fx) => (
+                    <span
+                      key={fx}
+                      className="chip bg-panel2 border border-line text-zinc-400"
+                    >
+                      {fx.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Object.keys(s.presetOverrides).length > 0 && (
+              <button
+                className="text-[11px] text-primary hover:underline"
+                onClick={() => s.set({ presetOverrides: {} })}
+              >
+                Reset to preset defaults
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {s.source.media_type !== "video" && (

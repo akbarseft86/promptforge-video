@@ -286,7 +286,9 @@ export function generateUniversalProject(
   const captionsRequestedButUnavailable = wantsOnScreenText && !hasLockedText;
   /** True when the finished edit renders spoken words on screen at all. */
   const hasOnScreenText = captionsEnabled || captionsRequestedButUnavailable;
-  const sfxEnabled = flags.sfx || preset.sound_design.intensity !== "low";
+  // "low" means quiet, not silent — a preset opts out of sound design by
+  // carrying an empty palette, not by being set to its lowest intensity.
+  const sfxEnabled = flags.sfx || (preset.sfx_palette?.length ?? 0) > 0;
   const musicEnabled = flags.music || preset.music_styles.length > 0;
 
   // An explicit "keep the background" always wins over the preset default.

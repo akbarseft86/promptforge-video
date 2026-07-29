@@ -3,6 +3,7 @@ import { validateProject, compareTranscriptTokens } from "../src/features/valida
 import { generateHumanPrompt } from "../src/services/humanPrompt";
 import { ADAPTERS } from "../src/adapters";
 import { BUILTIN_PRESETS } from "../src/features/presets/presets";
+import { applyOverrides } from "../src/stores/project";
 
 const locked =
   "burung pipit, hinggap di dahan, terbang rendah, mencari padi, dunia sibuk jangan jadikan beban, pakai AI, konten jadi setiap hari";
@@ -255,6 +256,57 @@ assert(
   generateHumanPrompt(presetOnly).length > 400,
   "preset-only project still yields a full prompt"
 );
+
+console.log("Preset overrides:");
+{
+  const base = BUILTIN_PRESETS.find((x) => x.id === "cinematic_creator")!;
+  const tweaked = applyOverrides(base, {
+    editing: { pacing: "relaxed", punch_in_frequency: "off" },
+    sfxIntensity: "low",
+    backgroundReplacement: false,
+  });
+  assert(
+    base.editing.pacing === "high_retention" && base.sound_design.intensity === "medium",
+    "overriding never mutates the underlying preset"
+  );
+  assert(
+    tweaked.editing.pacing === "relaxed" &&
+      tweaked.sound_design.intensity === "low" &&
+      tweaked.background_replacement_default === false,
+    "overrides land on the effective preset"
+  );
+  assert(
+    applyOverrides(base, {}) === base,
+    "an empty override set returns the preset unchanged"
+  );
+  const mk = (preset: typeof base) =>
+    generateUniversalProject({
+      projectName: "T", instructions: "", customStyle: "", preset,
+      transcriptMode: "none", manualTranscript: "", autoTranscript: "",
+      speakers: [{ id: "speaker_1", label: "S" }],
+      preservation: {
+        identity: true, voice: true, lip_sync: true, facial_expression: true,
+        body_language: true, clothing: true, original_colors: true,
+        body_proportions: true, original_language: true, camera_perspective: false,
+      },
+      source: { media_type: "text_only" },
+      platformTargets: ["tiktok"], targetDurationSeconds: 20,
+    });
+  const tweakedProject = mk(tweaked);
+  assert(
+    tweakedProject.editing.pacing === "relaxed" &&
+      tweakedProject.visual_direction.background_replacement === false,
+    "overrides reach the generated JSON, not just the UI"
+  );
+  assert(
+    tweakedProject.sound_design?.intensity === "low",
+    "low sound design stays audible rather than being dropped"
+  );
+  assert(
+    mk(BUILTIN_PRESETS.find((x) => x.id === "minimal_clean")!).sound_design === undefined,
+    "a preset with an empty SFX palette still opts out of sound design"
+  );
+}
 
 console.log("Preset library:");
 assert(BUILTIN_PRESETS.length >= 30, `${BUILTIN_PRESETS.length} built-in presets`);

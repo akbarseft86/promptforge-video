@@ -21,6 +21,30 @@ import {
 } from "../features/validator/validate";
 
 export type TranscriptMode = "manual" | "auto" | "none";
+
+export interface PresetOverrides {
+  editing?: Partial<Preset["editing"]>;
+  sfxIntensity?: Preset["sound_design"]["intensity"];
+  backgroundReplacement?: boolean;
+}
+
+/** Applies the user's in-place tweaks on top of a preset. */
+export function applyOverrides(
+  preset: Preset,
+  o: PresetOverrides
+): Preset {
+  if (!o.editing && o.sfxIntensity === undefined && o.backgroundReplacement === undefined)
+    return preset;
+  return {
+    ...preset,
+    editing: { ...preset.editing, ...(o.editing ?? {}) },
+    sound_design: {
+      intensity: o.sfxIntensity ?? preset.sound_design.intensity,
+    },
+    background_replacement_default:
+      o.backgroundReplacement ?? preset.background_replacement_default,
+  };
+}
 export type ProcessingState =
   | "idle"
   | "uploading"
@@ -66,6 +90,8 @@ interface ProjectState {
   videoObjectUrl: string | null;
   platformTargets: UniversalVideoProject["output"]["platform_targets"];
   targetDurationSeconds: number;
+  /** In-place tweaks to the selected preset; cleared by "Reset to preset defaults". */
+  presetOverrides: PresetOverrides;
 
   // presets
   customPresets: Preset[];
@@ -86,6 +112,7 @@ interface ProjectState {
   // actions
   set: (patch: Partial<ProjectState>) => void;
   allPresets: () => Preset[];
+  basePreset: () => Preset;
   selectedPreset: () => Preset;
   addSpeaker: () => void;
   renameSpeaker: (id: string, label: string) => void;
@@ -117,6 +144,7 @@ function persistInputs(s: ProjectState) {
         language: s.language,
         selectedPresetId: s.selectedPresetId,
         targetDurationSeconds: s.targetDurationSeconds,
+        presetOverrides: s.presetOverrides,
       })
     );
     if (s.project)
@@ -154,6 +182,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   videoObjectUrl: null,
   platformTargets: ["instagram_reels", "tiktok", "youtube_shorts"],
   targetDurationSeconds: 15,
+  presetOverrides: {},
 
   customPresets: loadCustomPresets(),
   selectedPresetId: "cinematic_creator",
@@ -177,10 +206,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   allPresets: () => [...BUILTIN_PRESETS, ...get().customPresets],
 
-  selectedPreset: () => {
+  /** The preset as chosen, before the user's in-place tweaks. */
+  basePreset: () => {
     const all = get().allPresets();
     return all.find((p) => p.id === get().selectedPresetId) ?? BUILTIN_PRESETS[0];
   },
+
+  /** What generation and the UI both read: preset + overrides. */
+  selectedPreset: () => applyOverrides(get().basePreset(), get().presetOverrides),
 
   addSpeaker: () => {
     const speakers = get().speakers;
