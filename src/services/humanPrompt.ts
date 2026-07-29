@@ -230,8 +230,16 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
       behavior.push(
         "Synchronize every word perfectly with the speaker's lip movements."
       );
-    if (c.replace_on_progress)
+    if (c.replace_on_progress) {
       behavior.push("Replace old text with new text as the speaker continues.");
+      behavior.push(
+        "Remove each text segment immediately after its spoken phrase ends."
+      );
+      behavior.push(
+        "Do not leave previous text on screen once the next phrase begins."
+      );
+      behavior.push("Do not display duplicated words or repeated segments.");
+    }
     if (!c.allow_future_dialogue) {
       behavior.push("Never show future dialogue before it is spoken.");
       behavior.push("Show only the words currently being spoken.");
@@ -473,24 +481,32 @@ export function generateHumanPrompt(p: UniversalVideoProject): string {
   blocks.push(
     `Final output should look like a ${quality} ${joinNatural(platforms, "or")} edited by a world-class creative agency, featuring ${joinNatural(finalFeatures)}.`
   );
+  if (p.output.aspect_ratio) {
+    const vertical = p.output.aspect_ratio === "9:16" ? " vertical" : "";
+    blocks.push(`Final aspect ratio: ${p.output.aspect_ratio}${vertical}.`);
+  }
 
   // ---------- 13. Locked transcript, last ----------
   // Closing the prompt with the spoken lines keeps them adjacent to where the
   // model starts writing, instead of buried behind the styling instructions.
   if (p.transcript.source !== "none" && p.transcript.text.trim()) {
-    const label =
-      p.transcript.source === "manual_locked"
-        ? "LOCKED TRANSCRIPT — the speaker says exactly this, word for word"
-        : "LOCKED TRANSCRIPT — transcribed and locked, word for word";
+    // Phrased as the dialogue to be delivered, rather than as an instruction
+    // to analyse the speaker's recorded voice — the requirement is identical
+    // and this wording is what practitioners report getting accepted.
     blocks.push(
       [
-        `${label}:`,
+        `The speaker says the following dialogue exactly once:`,
         ``,
         `"${p.transcript.text}"`,
         ``,
-        `This text is the single source of truth for every on-screen word, and it matches what is spoken in the attached video.`,
-        `Align it to the audio by timing only: find where each word is spoken and show it at that moment.`,
-        `Before rendering, verify the on-screen words reproduce the text above exactly — same words, same order, same count, nothing added and nothing dropped.`,
+        `The spoken dialogue and the displayed text must use exactly these words, in exactly this spelling and word order.`,
+        `There must be no typographical errors.`,
+        `There must be no missing words.`,
+        `There must be no additional words.`,
+        `There must be no duplicated words.`,
+        `There must be no repeated sentences.`,
+        `The speaker must not repeat any word or phrase unless it is written more than once above.`,
+        `The displayed text must appear only once, following the natural timing of the speech.`,
       ].join("\n")
     );
   }

@@ -95,7 +95,8 @@ export const CONSTRAINT_PHRASES: Record<string, string> = {
   no_keyword_substitution:
     "Do NOT generate keywords instead of the spoken words.",
   no_missing_dialogue: "Do NOT omit any spoken words.",
-  no_dialogue_repetition: "Do NOT repeat or duplicate any spoken words.",
+  no_dialogue_repetition:
+    "Do NOT make the speaker pronounce any word more than once, and do NOT display repeated or duplicated text.",
   no_added_dialogue: "Do NOT add words that were never spoken.",
   no_translation: "Do NOT translate the spoken language.",
   no_caption_face_overlap: "Do NOT cover the speaker's face.",

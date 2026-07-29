@@ -382,7 +382,8 @@ for (const section of [
     "the locked transcript is the final block of the prompt"
   );
   assert(
-    human.lastIndexOf("LOCKED TRANSCRIPT —") > human.indexOf("Negative Constraints:"),
+    human.lastIndexOf("The speaker says the following dialogue") >
+      human.indexOf("Negative Constraints:"),
     "transcript comes after the styling and constraint sections"
   );
   assert(
@@ -397,9 +398,15 @@ for (const section of [
 
 // Locked-transcript path must also demand a verbatim self-check.
 assert(
-  human.includes("single source of truth for every on-screen word") &&
-    human.includes("same words, same order, same count"),
-  "locked-transcript prompt demands an exact verbatim self-check"
+  human.includes("exactly this spelling and word order") &&
+    human.includes("There must be no duplicated words.") &&
+    human.includes("There must be no missing words."),
+  "locked-transcript prompt pins spelling, order, and word count"
+);
+assert(
+  !human.includes("matches what is spoken in the attached video") &&
+    !human.includes("Align it to the audio"),
+  "the prompt does not ask the model to analyse the speaker's recorded voice"
 );
 
 // Faithfulness: a disabled module must not appear in the prompt.
