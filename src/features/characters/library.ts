@@ -1,4 +1,16 @@
 import { Character, CharacterSchema } from "../../schemas/universal";
+import shipped from "./shipped-characters.json";
+
+/**
+ * Characters that ship with the app, so a team gets them without importing
+ * anything. The saved library below is per-browser by nature; this is the
+ * path for a character everyone should have. Invalid entries are dropped
+ * rather than thrown, so one bad record cannot take out the picker.
+ */
+export const SHIPPED_CHARACTERS: Character[] = (shipped as unknown[])
+  .map((c) => CharacterSchema.safeParse(c))
+  .filter((r): r is { success: true; data: Character } => r.success)
+  .map((r) => r.data);
 
 /**
  * Saved characters, kept outside any one project.

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "character_101",
+    "name": "Maya Pratama",
+    "appearance": "athletic build, high cheekbones, calm steady expression",
+    "role": "founder",
+    "age_range": "early 30s",
+    "gender": "woman",
+    "ethnicity": "Indonesian",
+    "skin_tone": "golden brown",
+    "eye_color": "dark brown",
+    "hair": "long black straight",
+    "distinguishing_features": "small scar above the left eyebrow",
+    "wardrobe": "charcoal blazer over a plain white tee",
+    "voice": "low, unhurried, lands each sentence before moving on",
+    "mannerisms": "talks with open hands, steady eye contact",
+    "lock_across_shots": true
+  }
+]

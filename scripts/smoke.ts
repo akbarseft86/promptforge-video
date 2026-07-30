@@ -8,6 +8,7 @@ import { fixFor, safeFixes } from "../src/features/validator/autofix";
 import { CHARACTER_ARCHETYPES } from "../src/features/characters/archetypes";
 import { characterSheet, missingIdentityTraits } from "../src/features/characters/sheet";
 import { CharacterSchema } from "../src/schemas/universal";
+import { SHIPPED_CHARACTERS } from "../src/features/characters/library";
 
 const locked =
   "burung pipit, hinggap di dahan, terbang rendah, mencari padi, dunia sibuk jangan jadikan beban, pakai AI, konten jadi setiap hari";
@@ -697,6 +698,34 @@ assert(
   assert(
     generateHumanPrompt(scene2).includes(characterSheet(maya)),
     "a different scene carries the same sheet unchanged"
+  );
+}
+
+// ──────── shipped characters ────────
+{
+  // Every shipped character must survive the same round trip a user's
+  // library does, or it would be dropped silently on their machine.
+  for (const c of SHIPPED_CHARACTERS) {
+    assert(
+      CharacterSchema.safeParse(c).success,
+      `shipped character "${c.name}" is schema-valid`
+    );
+    assert(
+      characterSheet(c).includes(c.name),
+      `shipped character "${c.name}" renders a sheet`
+    );
+  }
+  assert(
+    new Set(SHIPPED_CHARACTERS.map((c) => c.id)).size ===
+      SHIPPED_CHARACTERS.length,
+    "shipped character ids are unique"
+  );
+  // The library merges by name, so a duplicate would overwrite the other on
+  // every user's machine rather than shipping two characters.
+  assert(
+    new Set(SHIPPED_CHARACTERS.map((c) => c.name.trim().toLowerCase())).size ===
+      SHIPPED_CHARACTERS.length,
+    "shipped character names are unique"
   );
 }
 

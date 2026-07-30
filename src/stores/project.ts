@@ -25,6 +25,7 @@ import {
   loadCharacterLibrary,
   saveCharacterLibrary,
   validateImportedCharacter,
+  SHIPPED_CHARACTERS,
 } from "../features/characters/library";
 import {
   MediaService,
@@ -331,7 +332,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   useCharacterFromLibrary: (libraryId) => {
-    const saved = get().characterLibrary.find((c) => c.id === libraryId);
+    // Shipped first: a name saved locally must not shadow the one the team
+    // shares, or two people would silently render different faces.
+    const saved =
+      SHIPPED_CHARACTERS.find((c) => c.id === libraryId) ??
+      get().characterLibrary.find((c) => c.id === libraryId);
     if (!saved) return;
     const characters = get().characters;
     const nextNum =

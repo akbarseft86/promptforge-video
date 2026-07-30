@@ -15,6 +15,7 @@ import {
   characterSheet,
   missingIdentityTraits,
 } from "../features/characters/sheet";
+import { SHIPPED_CHARACTERS } from "../features/characters/library";
 import { copyToClipboard } from "../utils/clipboard";
 
 /** Custom presets group under "Custom"; built-ins under their own category. */
@@ -284,10 +285,10 @@ export default function InputPanel() {
         </p>
         {/* Saved characters are the point of the library: a longer piece is
             many separate generations, and each needs the identical sheet. */}
-        {s.characterLibrary.length > 0 && (
+        {(s.characterLibrary.length > 0 || SHIPPED_CHARACTERS.length > 0) && (
           <div className="mb-2">
             <label className="field-label" htmlFor="charlib">
-              Reuse a saved character
+              Reuse a character
             </label>
             <div className="flex gap-1.5">
               <select
@@ -298,13 +299,29 @@ export default function InputPanel() {
                   if (e.target.value) s.useCharacterFromLibrary(e.target.value);
                 }}
               >
-                <option value="">Pick a saved character…</option>
-                {s.characterLibrary.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.role ? ` — ${c.role}` : ""}
-                  </option>
-                ))}
+                <option value="">Pick a character…</option>
+                {/* Shipped and saved are kept apart: one reaches the whole
+                    team, the other only this browser. */}
+                {SHIPPED_CHARACTERS.length > 0 && (
+                  <optgroup label="Shipped with the app">
+                    {SHIPPED_CHARACTERS.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.role ? ` — ${c.role}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {s.characterLibrary.length > 0 && (
+                  <optgroup label="Saved in this browser">
+                    {s.characterLibrary.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.role ? ` — ${c.role}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
             <div className="flex flex-wrap gap-1 mt-1.5">
