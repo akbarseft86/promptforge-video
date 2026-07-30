@@ -53,6 +53,8 @@ export default function InputPanel() {
   const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [sheetCopied, setSheetCopied] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [libNote, setLibNote] = useState<string | null>(null);
+  const libFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     ServerHealth.check().then(setAiReady);
@@ -322,6 +324,53 @@ export default function InputPanel() {
                 </span>
               ))}
             </div>
+            {/* The library lives in this browser only, so it has to be able to
+                leave — otherwise a character is stranded on one device. */}
+            <div className="flex gap-2 mt-1.5">
+              <button
+                className="text-[11px] text-primary hover:underline"
+                onClick={() => {
+                  const blob = new Blob(
+                    [JSON.stringify(s.characterLibrary, null, 2)],
+                    { type: "application/json" }
+                  );
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = "promptforge-characters.json";
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                }}
+              >
+                ⭳ Export library
+              </button>
+              <button
+                className="text-[11px] text-primary hover:underline"
+                onClick={() => libFileRef.current?.click()}
+              >
+                ⭱ Import
+              </button>
+              <input
+                ref={libFileRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const n = s.importCharacterLibrary(await f.text());
+                  setLibNote(
+                    n > 0
+                      ? `Imported ${n} character${n === 1 ? "" : "s"}.`
+                      : "Nothing valid to import."
+                  );
+                  setTimeout(() => setLibNote(null), 2500);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {libNote && (
+              <p className="text-[11px] text-primary mt-1">{libNote}</p>
+            )}
           </div>
         )}
         {s.characters.length === 0 && (

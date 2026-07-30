@@ -24,6 +24,7 @@ import { AutoFix, safeFixes } from "../features/validator/autofix";
 import {
   loadCharacterLibrary,
   saveCharacterLibrary,
+  validateImportedCharacter,
 } from "../features/characters/library";
 import {
   MediaService,
@@ -145,6 +146,8 @@ interface ProjectState {
   /** Copy a saved character into this project under a fresh id. */
   useCharacterFromLibrary: (libraryId: string) => void;
   deleteCharacterFromLibrary: (libraryId: string) => void;
+  /** Merge an exported library file in; returns how many were accepted. */
+  importCharacterLibrary: (json: string) => number;
   togglePreservation: (key: keyof SpeakerPreservation) => void;
   refreshRecommendation: () => void;
   runAiPass: (file: File) => Promise<void>;
@@ -347,6 +350,35 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const next = get().characterLibrary.filter((c) => c.id !== libraryId);
     saveCharacterLibrary(next);
     set({ characterLibrary: next });
+  },
+
+  importCharacterLibrary: (json) => {
+    let incoming: unknown;
+    try {
+      incoming = JSON.parse(json);
+    } catch {
+      return 0;
+    }
+    const arr = Array.isArray(incoming) ? incoming : [incoming];
+    const valid = arr
+      .map(validateImportedCharacter)
+      .filter((r): r is { ok: true; character: Character } => r.ok)
+      .map((r) => r.character);
+    if (!valid.length) return 0;
+
+    // Merged by name, and the imported sheet wins: bringing a character to a
+    // second machine must reproduce it exactly, not blend it with a local
+    // copy that has drifted.
+    const incomingNames = new Set(
+      valid.map((c) => c.name.trim().toLowerCase())
+    );
+    const kept = get().characterLibrary.filter(
+      (c) => !incomingNames.has(c.name.trim().toLowerCase())
+    );
+    const next = [...kept, ...valid];
+    saveCharacterLibrary(next);
+    set({ characterLibrary: next });
+    return valid.length;
   },
 
   refreshRecommendation: () => {
@@ -590,11 +622,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     localStorage.removeItem(PROJECT_KEY);
     localStorage.removeItem(INPUTS_KEY);
     localStorage.removeItem("pfv.custom_presets.v1");
+    // The saved-character library is local data too. Leaving it behind made
+    // the button quietly untrue about what it clears.
+    localStorage.removeItem("pfv.characters.v1");
     set({
       project: null,
       rawJsonDraft: "",
       validation: null,
       customPresets: [],
+      characters: [],
+      characterLibrary: [],
       instructions: "",
       customStyle: "",
       manualTranscript: "",
