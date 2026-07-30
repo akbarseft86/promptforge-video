@@ -56,5 +56,240 @@
     "color_grading": "neutral, low saturation on the speaker, saturation carried by the environment",
     "music_description": "quiet ambient pad that never competes with the voice; no drop, no build",
     "background_replacement_default": true
+  },
+  {
+    "preset_version": "1.0",
+    "id": "tutorial_multi_mode_fast",
+    "name": "Tutorial Multi-Mode Cepat",
+    "description": "Opens on a large text hook, then keeps cycling visual modes — facecam, live demonstration, screen recording, output example — and closes on a comment-CTA card. Attention is held by changing what kind of thing you are looking at, not by cutting faster.",
+    "visual_style": "screen-recording and facecam intercut with generated output, bright and utilitarian, no cinematic grade",
+    "environment": "desk setup and application UI; the tool being taught stays on screen",
+    "editing": {
+      "pacing": "high_retention",
+      "punch_in_frequency": "medium",
+      "b_roll_frequency": "high",
+      "typography_frequency": "high",
+      "motion_graphics": true,
+      "transitions": false
+    },
+    "sound_design": {
+      "intensity": "medium"
+    },
+    "music_styles": [
+      "low-key instrumental bed"
+    ],
+    "caption_style": "oversized hook text on the opening beat, then short white or yellow instruction captions carrying each step",
+    "category": "Education",
+    "visual_effects": [
+      "screen_recording_overlay",
+      "ui_highlight"
+    ],
+    "motion_elements": [
+      "mode_switch",
+      "cta_comment_card"
+    ],
+    "background_elements": [
+      "application_ui",
+      "generated_output_example"
+    ],
+    "caption_position": "auto",
+    "typography": "heavy sans, high contrast against the UI behind it",
+    "background_replacement_default": false
+  },
+  {
+    "preset_version": "1.0",
+    "id": "presenter_split_layout_stable",
+    "name": "Presenter Split-Layout Stabil",
+    "description": "The presenter holds a fixed bottom panel as the anchor while the top panel carries the demo, UI or output. The frame never rearranges, so the viewer never has to re-orient — the top panel changing is the only edit.",
+    "visual_style": "fixed two-panel composition, presenter below and material above, even lighting, no cinematic grade",
+    "environment": "presenter at a desk; the upper panel shows whatever is being explained",
+    "editing": {
+      "pacing": "standard",
+      "punch_in_frequency": "low",
+      "b_roll_frequency": "medium",
+      "typography_frequency": "medium",
+      "motion_graphics": true,
+      "transitions": false
+    },
+    "sound_design": {
+      "intensity": "low"
+    },
+    "music_styles": [
+      "quiet ambient bed"
+    ],
+    "caption_style": "short captions and labels sitting on the upper panel, close to what they describe",
+    "category": "Explainer",
+    "visual_effects": [
+      "fixed_split_layout",
+      "screen_recording_overlay"
+    ],
+    "motion_elements": [
+      "upper_panel_content_swap"
+    ],
+    "background_elements": [
+      "application_ui",
+      "demo_output"
+    ],
+    "caption_position": "lower_third",
+    "typography": "clean sans, label weight rather than headline weight",
+    "background_replacement_default": false
+  },
+  {
+    "preset_version": "1.0",
+    "id": "showcase_visual_plus_workflow",
+    "name": "Showcase Visual + Workflow",
+    "description": "Leads with the finished visual to earn attention, drops into the process or UI as proof it is real, then returns to the visual as payoff. Result first, receipts second, result again.",
+    "visual_style": "cinematic generated output alternating with plain workflow UI, the contrast between the two is the point",
+    "environment": "generated scenes for the hook and payoff; application UI for the middle proof section",
+    "editing": {
+      "pacing": "high_retention",
+      "punch_in_frequency": "medium",
+      "b_roll_frequency": "high",
+      "typography_frequency": "medium",
+      "motion_graphics": true,
+      "transitions": false
+    },
+    "sound_design": {
+      "intensity": "medium"
+    },
+    "music_styles": [
+      "building instrumental",
+      "low-end pulse"
+    ],
+    "caption_style": "short hook line up front, then proof labels naming the tool or step",
+    "category": "Tech",
+    "visual_effects": [
+      "generated_output_showcase",
+      "screen_recording_overlay"
+    ],
+    "motion_elements": [
+      "result_to_process_to_result",
+      "cta_comment_card"
+    ],
+    "background_elements": [
+      "generated_scene",
+      "application_ui"
+    ],
+    "caption_position": "auto",
+    "typography": "bold sans for the hook, lighter weight for proof labels",
+    "background_replacement_default": false
+  },
+  {
+    "preset_version": "1.0",
+    "id": "cinematic_led_sequence",
+    "name": "Cinematic-Led Sequence",
+    "description": "A run of generated cinematic shots carries the whole narrative. No presenter, no UI — the footage is the argument. Built to sell output quality the way a trailer does.",
+    "visual_style": "photoreal generated cinematography, consistent grade across every shot, feature-film framing",
+    "environment": "continuous generated world; shots read as one location and one hour of day",
+    "editing": {
+      "pacing": "standard",
+      "punch_in_frequency": "off",
+      "b_roll_frequency": "high",
+      "typography_frequency": "low",
+      "motion_graphics": false,
+      "transitions": false
+    },
+    "sound_design": {
+      "intensity": "medium"
+    },
+    "music_styles": [
+      "cinematic score",
+      "atmospheric bed"
+    ],
+    "caption_style": "minimal — a brand mark or a single closing line, nothing competing with the frame",
+    "category": "Aesthetic",
+    "visual_effects": [
+      "photoreal_generation",
+      "consistent_color_grade"
+    ],
+    "motion_elements": [
+      "continuous_camera_motion",
+      "shot_to_shot_morph"
+    ],
+    "camera_moves": [
+      "aerial_tracking",
+      "descent",
+      "orbit"
+    ],
+    "background_elements": [
+      "generated_environment"
+    ],
+    "caption_position": "auto",
+    "typography": "restrained, small, corner-set",
+    "color_grading": "warm cinematic grade held identical across shots",
+    "music_description": "score carries the pacing since there is no dialogue to cut against",
+    "background_replacement_default": false
+  },
+  {
+    "preset_version": "1.0",
+    "id": "alternating_cinematic_explainer",
+    "name": "Alternating Cinematic Explainer",
+    "description": "Alternates full-frame cinematic blocks with full-frame presenter blocks — B-roll, host, B-roll, host. Gets the pull of generated footage and the trust of a face without ever splitting the frame.",
+    "visual_style": "full-frame cinematic generation alternating with full-frame talking head, each mode given the whole screen",
+    "environment": "generated scenes for the B-roll blocks; a real room for the host blocks",
+    "editing": {
+      "pacing": "high_retention",
+      "punch_in_frequency": "medium",
+      "b_roll_frequency": "high",
+      "typography_frequency": "low",
+      "motion_graphics": true,
+      "transitions": false
+    },
+    "sound_design": {
+      "intensity": "medium"
+    },
+    "music_styles": [
+      "instrumental bed that ducks under the host"
+    ],
+    "caption_style": "sparse captions, with an occasional app logo when a tool is named",
+    "category": "Creator",
+    "visual_effects": [
+      "full_frame_mode_alternation"
+    ],
+    "motion_elements": [
+      "broll_host_alternation"
+    ],
+    "background_elements": [
+      "generated_scene",
+      "host_room"
+    ],
+    "caption_position": "auto",
+    "typography": "minimal, used only where a name must be readable",
+    "background_replacement_default": false
+  },
+  {
+    "preset_version": "1.0",
+    "id": "static_comparison_board",
+    "name": "Static Comparison Board",
+    "description": "Reference and result sit on screen together in a layout that never moves, with almost no cuts. The comparison itself is the content — no process, no narration structure to follow.",
+    "visual_style": "fixed comparison board, input and output side by side, flat and evenly lit",
+    "environment": "no scene — the board is the frame",
+    "editing": {
+      "pacing": "relaxed",
+      "punch_in_frequency": "off",
+      "b_roll_frequency": "medium",
+      "typography_frequency": "low",
+      "motion_graphics": false,
+      "transitions": false
+    },
+    "sound_design": {
+      "intensity": "low"
+    },
+    "music_styles": [
+      "minimal ambient bed"
+    ],
+    "caption_style": "one short explanatory line above the comparison, held for the whole shot",
+    "category": "Tech",
+    "visual_effects": [
+      "side_by_side_comparison",
+      "fixed_board_layout"
+    ],
+    "background_elements": [
+      "reference_input",
+      "generated_result"
+    ],
+    "caption_position": "centered",
+    "typography": "plain sans, legibility over style",
+    "background_replacement_default": false
   }
 ]
