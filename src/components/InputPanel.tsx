@@ -249,6 +249,161 @@ export default function InputPanel() {
       </div>
 
       <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="field-label mb-0">Characters</span>
+          <button
+            className="text-[11px] text-primary hover:underline"
+            onClick={() => s.addCharacter()}
+          >
+            ＋ Add character
+          </button>
+        </div>
+        <p className="text-[11px] text-zinc-500 mb-2">
+          Describe anyone the model has to <strong>invent</strong> rather than
+          preserve. Locking a character demands the same face and wardrobe in
+          every shot — generated video drifts otherwise.
+        </p>
+        {s.characters.length === 0 && (
+          <p className="text-[11px] text-zinc-600">
+            None. The prompt will not describe who appears on screen.
+          </p>
+        )}
+        <div className="space-y-2">
+          {s.characters.map((c) => (
+            <div
+              key={c.id}
+              className="rounded-lg border border-line bg-panel2/50 p-2.5 space-y-2"
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  className="text-input py-1 text-xs flex-1"
+                  value={c.name}
+                  placeholder="Name"
+                  onChange={(e) =>
+                    s.updateCharacter(c.id, { name: e.target.value })
+                  }
+                  aria-label={`Character name for ${c.id}`}
+                />
+                <button
+                  className="text-zinc-500 hover:text-red-400 shrink-0 text-xs"
+                  onClick={() => s.removeCharacter(c.id)}
+                  aria-label={`Remove ${c.name}`}
+                >
+                  ✕
+                </button>
+              </div>
+              <textarea
+                className="text-input text-xs min-h-[54px]"
+                value={c.appearance}
+                placeholder="Appearance — face, build, hair, skin tone. Required."
+                onChange={(e) =>
+                  s.updateCharacter(c.id, { appearance: e.target.value })
+                }
+                aria-label={`Appearance for ${c.name}`}
+              />
+              {!c.appearance.trim() && (
+                <p className="text-[11px] text-amber-500/90">
+                  ⚠ Without an appearance this character is skipped — the model
+                  would otherwise draw whoever it likes.
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  className="text-input py-1 text-xs"
+                  value={c.role ?? ""}
+                  placeholder="Role (optional)"
+                  onChange={(e) =>
+                    s.updateCharacter(c.id, { role: e.target.value || undefined })
+                  }
+                  aria-label={`Role for ${c.name}`}
+                />
+                <input
+                  className="text-input py-1 text-xs"
+                  value={c.age_range ?? ""}
+                  placeholder="Age range (optional)"
+                  onChange={(e) =>
+                    s.updateCharacter(c.id, {
+                      age_range: e.target.value || undefined,
+                    })
+                  }
+                  aria-label={`Age range for ${c.name}`}
+                />
+                <input
+                  className="text-input py-1 text-xs"
+                  value={c.wardrobe ?? ""}
+                  placeholder="Wardrobe (optional)"
+                  onChange={(e) =>
+                    s.updateCharacter(c.id, {
+                      wardrobe: e.target.value || undefined,
+                    })
+                  }
+                  aria-label={`Wardrobe for ${c.name}`}
+                />
+                <input
+                  className="text-input py-1 text-xs"
+                  value={c.voice ?? ""}
+                  placeholder="Voice (optional)"
+                  onChange={(e) =>
+                    s.updateCharacter(c.id, { voice: e.target.value || undefined })
+                  }
+                  aria-label={`Voice for ${c.name}`}
+                />
+              </div>
+              <input
+                className="text-input py-1 text-xs"
+                value={c.mannerisms ?? ""}
+                placeholder="Mannerisms / how they carry themselves (optional)"
+                onChange={(e) =>
+                  s.updateCharacter(c.id, {
+                    mannerisms: e.target.value || undefined,
+                  })
+                }
+                aria-label={`Mannerisms for ${c.name}`}
+              />
+              <label className="flex items-center justify-between text-xs cursor-pointer">
+                <span className="text-zinc-300">Lock across shots</span>
+                <input
+                  type="checkbox"
+                  className="accent-violet-500 h-3.5 w-3.5"
+                  checked={c.lock_across_shots}
+                  onChange={(e) =>
+                    s.updateCharacter(c.id, {
+                      lock_across_shots: e.target.checked,
+                    })
+                  }
+                />
+              </label>
+              {/* Linking matters only when there is footage to preserve. */}
+              {s.source.media_type === "video" && (
+                <div>
+                  <label className="field-label" htmlFor={`spk-${c.id}`}>
+                    Is this the person on camera?
+                  </label>
+                  <select
+                    id={`spk-${c.id}`}
+                    className="text-input py-1 text-xs"
+                    value={c.speaker_id ?? ""}
+                    onChange={(e) =>
+                      s.updateCharacter(c.id, {
+                        speaker_id: e.target.value || undefined,
+                      })
+                    }
+                  >
+                    <option value="">No — a separate, generated person</option>
+                    {s.speakers.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        Yes — {sp.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
         <label className="field-label" htmlFor="instructions">
           Editing Instructions
         </label>

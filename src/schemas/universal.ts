@@ -39,6 +39,34 @@ export const SpeakerSchema = z.object({
   label: z.string().min(1),
 });
 
+/**
+ * A person the video model must render, as opposed to one it must leave alone.
+ *
+ * `speaker_preservation` locks a real filmed person: every field is "do not
+ * change this". A character is the opposite problem — nobody was filmed, so
+ * the model has to invent someone and then keep them identical across shots,
+ * which is where generated video drifts worst. `appearance` is therefore
+ * required: a character with no description is just an unconstrained person.
+ *
+ * When a character does correspond to filmed footage, `speaker_id` links the
+ * two so the prompt describes and preserves the same person rather than
+ * treating them as two subjects.
+ */
+export const CharacterSchema = z.object({
+  id: z.string().regex(/^character_\d+$/),
+  name: z.string().min(1),
+  appearance: z.string().min(1),
+  role: z.string().optional(),
+  age_range: z.string().optional(),
+  wardrobe: z.string().optional(),
+  voice: z.string().optional(),
+  mannerisms: z.string().optional(),
+  /** Links this character to a filmed speaker, when there is footage. */
+  speaker_id: z.string().regex(/^speaker_\d+$/).optional(),
+  /** Demand the same face, build and wardrobe in every shot. */
+  lock_across_shots: z.boolean(),
+});
+
 export const TranscriptSchema = z.object({
   source: z.enum(["manual_locked", "auto_locked", "none"]),
   language: z.string().optional(),
@@ -294,6 +322,7 @@ export const UniversalVideoProjectSchema = z.object({
   source: SourceSchema,
   analysis: AnalysisSchema,
   speakers: z.array(SpeakerSchema),
+  characters: z.array(CharacterSchema).optional(),
   transcript: TranscriptSchema,
   dialogue_timeline: z.array(DialogueEntrySchema),
   word_alignment: z.array(WordAlignmentSchema).optional(),
@@ -319,6 +348,7 @@ export type UniversalVideoProject = z.infer<typeof UniversalVideoProjectSchema>;
 export type ProjectInfo = z.infer<typeof ProjectInfoSchema>;
 export type Source = z.infer<typeof SourceSchema>;
 export type Speaker = z.infer<typeof SpeakerSchema>;
+export type Character = z.infer<typeof CharacterSchema>;
 export type Transcript = z.infer<typeof TranscriptSchema>;
 export type DialogueEntry = z.infer<typeof DialogueEntrySchema>;
 export type WordAlignment = z.infer<typeof WordAlignmentSchema>;

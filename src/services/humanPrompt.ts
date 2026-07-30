@@ -73,7 +73,17 @@ export function generateHumanPrompt(
   // enough to describe the input as footage. Calling it a "concept" tells the
   // video model there is no source, inviting it to generate a new person
   // instead of editing the one on camera.
-  const editsFootage = hasVideo || speakerOnCamera || hasSpokenContent;
+  // Nobody was filmed when the whole cast is invented. Preservation flags
+  // default to on, so without this the prompt would call a text-only project
+  // "raw talking-head video" and tell the model to keep a face it was never
+  // shown — which is how a second, unrelated person ends up in frame.
+  const generatedCast =
+    (p.characters?.length ?? 0) > 0 &&
+    !hasVideo &&
+    (p.characters ?? []).every((c) => !c.speaker_id);
+
+  const editsFootage =
+    !generatedCast && (hasVideo || speakerOnCamera || hasSpokenContent);
   const subject = !editsFootage
     ? "concept"
     : p.speakers.length > 1
@@ -110,13 +120,19 @@ export function generateHumanPrompt(
   )
     .filter((k) => p.speaker_preservation[k])
     .map((k) => PRESERVATION_PHRASES[k])
-    .filter(Boolean);
+    .filter(Boolean)
+    // "the original face" implies a reference the model was given. For an
+    // invented cast there is none, and implying one invites the model to
+    // hunt for a source image instead of holding its own first shot.
+    .map((phrase) => (generatedCast ? phrase.replace(/^original /, "same ") : phrase));
 
   if (preserved.length) {
     blocks.push(
-      editsFootage
-        ? `Preserve the original speaker exactly as filmed. Keep the ${joinNatural(preserved)} unchanged.`
-        : `Preserve the speaker exactly as filmed: keep the ${joinNatural(preserved)} unchanged.`
+      generatedCast
+        ? `Hold the cast consistent throughout: keep the ${joinNatural(preserved)} unchanged from shot to shot.`
+        : editsFootage
+          ? `Preserve the original speaker exactly as filmed. Keep the ${joinNatural(preserved)} unchanged.`
+          : `Preserve the speaker exactly as filmed: keep the ${joinNatural(preserved)} unchanged.`
     );
     // The list above already names each locked attribute.
     if (p.speaker_preservation.identity) cover("no_identity_change");
@@ -125,6 +141,51 @@ export function generateHumanPrompt(
     if (p.speaker_preservation.lip_sync) cover("no_lip_sync_change");
     if (p.speaker_preservation.body_proportions) cover("no_body_proportion_change");
     if (p.speaker_preservation.original_language) cover("no_translation");
+  }
+
+  // ---------- 2a. Characters ----------
+  // Placed immediately after preservation because the two answer the same
+  // question — who is on screen — from opposite directions: preservation
+  // protects a filmed person, characters specify an invented one. Drift
+  // across shots is the failure mode generated video hits hardest, so the
+  // lock is stated as a rule rather than left implied by the description.
+  const characters = p.characters ?? [];
+  if (characters.length) {
+    for (const c of characters) {
+      const parts = [c.appearance.trim()];
+      if (c.age_range) parts.push(`aged ${c.age_range}`);
+      if (c.wardrobe) parts.push(`wearing ${c.wardrobe}`);
+      if (c.mannerisms) parts.push(c.mannerisms);
+      const role = c.role ? ` (${c.role})` : "";
+      blocks.push(`${c.name}${role}: ${parts.join("; ")}.`);
+      if (c.voice) blocks.push(`${c.name} speaks with ${c.voice}.`);
+    }
+
+    const locked = characters.filter((c) => c.lock_across_shots);
+    if (locked.length) {
+      const names = joinNatural(locked.map((c) => c.name));
+      const subject = locked.length === 1 ? "this character" : "these characters";
+      blocks.push(
+        `Keep ${names} identical in every shot: the same face, the same build, ` +
+          `the same hair and the same wardrobe, from every angle and in every ` +
+          `location. Do not restyle, re-cast, age, or redesign ${subject} ` +
+          `between shots, and do not substitute a similar-looking person.`
+      );
+      cover("no_identity_change");
+    }
+
+    // A described character and a preserved filmed person are the same subject
+    // only when explicitly linked. Unlinked, the model has no way to know that
+    // and may render a second person alongside the one it was told to keep.
+    const linked = characters.filter((c) => c.speaker_id);
+    if (linked.length && editsFootage) {
+      blocks.push(
+        `${joinNatural(linked.map((c) => c.name))} ${
+          linked.length === 1 ? "is" : "are"
+        } the person already on camera — describe and preserve, do not add ` +
+          `anyone new to the frame.`
+      );
+    }
   }
 
   // ---------- 2b. Image fidelity ----------
@@ -143,7 +204,9 @@ export function generateHumanPrompt(
       );
     if (!fid.allow_face_smoothing)
       fidLines.push(
-        `Apply no beauty filter, skin smoothing, denoising, or retouching. Leave the subject exactly as the camera captured them.`
+        generatedCast
+          ? `Apply no beauty filter, skin smoothing, denoising, or retouching. Render the subject with real skin texture rather than a polished finish.`
+          : `Apply no beauty filter, skin smoothing, denoising, or retouching. Leave the subject exactly as the camera captured them.`
       );
     if (fid.preserve_source_resolution)
       fidLines.push(

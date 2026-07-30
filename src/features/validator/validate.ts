@@ -168,6 +168,55 @@ export function validateProject(raw: unknown): ValidationResult[] {
     });
   }
 
+  // 2c. Characters
+  const characters = p.characters ?? [];
+  if (characters.length) {
+    const speakerIdSet = new Set(p.speakers.map((s) => s.id));
+    const danglingLinks = characters.filter(
+      (c) => c.speaker_id && !speakerIdSet.has(c.speaker_id)
+    );
+    if (danglingLinks.length)
+      results.push({
+        severity: "ERROR",
+        title: "Character Links To Missing Speaker",
+        detail: `${danglingLinks
+          .map((c) => `${c.name} → ${c.speaker_id}`)
+          .join(", ")} — the speaker does not exist, so the prompt would claim someone is on camera who is not defined.`,
+      });
+
+    const unlocked = characters.filter((c) => !c.lock_across_shots);
+    if (unlocked.length)
+      results.push({
+        severity: "WARNING",
+        title: "Character Not Locked Across Shots",
+        detail: `${unlocked
+          .map((c) => c.name)
+          .join(", ")} may be redrawn between shots. Generated video drifts faces and wardrobe by default — lock the character unless you want that variation.`,
+      });
+
+    // Preserving a filmed person and inventing one are different jobs. Asking
+    // for both without linking them tells the model there are two subjects.
+    const unlinked = characters.filter((c) => !c.speaker_id);
+    if (
+      unlinked.length &&
+      p.source.media_type === "video" &&
+      p.speaker_preservation.identity
+    )
+      results.push({
+        severity: "WARNING",
+        title: "Character Alongside Preserved Speaker",
+        detail: `${unlinked
+          .map((c) => c.name)
+          .join(", ")} ${unlinked.length === 1 ? "is" : "are"} not linked to a speaker, but identity preservation is on for filmed footage. The model may add a second person instead of describing the one on camera — set the character's speaker to link them.`,
+      });
+    else
+      results.push({
+        severity: "PASS",
+        title: "Characters",
+        detail: `${characters.length} character${characters.length === 1 ? "" : "s"} defined, each with an appearance the model can render.`,
+      });
+  }
+
   // 3. Speaker references
   const speakerIds = new Set(p.speakers.map((s) => s.id));
   const badRefs = p.dialogue_timeline.filter(

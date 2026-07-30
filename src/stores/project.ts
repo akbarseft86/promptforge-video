@@ -3,6 +3,7 @@ import {
   UniversalVideoProject,
   Preset,
   Speaker,
+  Character,
   SpeakerPreservation,
   Source,
 } from "../schemas/universal";
@@ -93,6 +94,7 @@ interface ProjectState {
   autoTranscript: string;
   language: string;
   speakers: Speaker[];
+  characters: Character[];
   preservation: SpeakerPreservation;
   source: Source;
   videoObjectUrl: string | null;
@@ -130,6 +132,9 @@ interface ProjectState {
   addSpeaker: () => void;
   renameSpeaker: (id: string, label: string) => void;
   removeSpeaker: (id: string) => void;
+  addCharacter: () => void;
+  updateCharacter: (id: string, patch: Partial<Character>) => void;
+  removeCharacter: (id: string) => void;
   togglePreservation: (key: keyof SpeakerPreservation) => void;
   refreshRecommendation: () => void;
   runAiPass: (file: File) => Promise<void>;
@@ -158,6 +163,7 @@ function persistInputs(s: ProjectState) {
         transcriptMode: s.transcriptMode,
         manualTranscript: s.manualTranscript,
         language: s.language,
+        characters: s.characters,
         selectedPresetId: s.selectedPresetId,
         targetDurationSeconds: s.targetDurationSeconds,
         presetOverrides: s.presetOverrides,
@@ -193,6 +199,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   autoTranscript: "",
   language: "",
   speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+  characters: [],
   preservation: DEFAULT_PRESERVATION,
   source: DEFAULT_SOURCE,
   videoObjectUrl: null,
@@ -263,6 +270,38 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         [key]: !get().preservation[key],
       },
     }),
+
+  addCharacter: () => {
+    const characters = get().characters;
+    // Numbered off the highest existing id rather than the count, so deleting
+    // a middle character cannot mint a duplicate id.
+    const nextNum =
+      characters.reduce(
+        (max, c) => Math.max(max, Number(c.id.replace("character_", "")) || 0),
+        0
+      ) + 1;
+    get().set({
+      characters: [
+        ...characters,
+        {
+          id: `character_${nextNum}`,
+          name: `Character ${nextNum}`,
+          appearance: "",
+          lock_across_shots: true,
+        },
+      ],
+    });
+  },
+
+  updateCharacter: (id, patch) =>
+    get().set({
+      characters: get().characters.map((c) =>
+        c.id === id ? { ...c, ...patch } : c
+      ),
+    }),
+
+  removeCharacter: (id) =>
+    get().set({ characters: get().characters.filter((c) => c.id !== id) }),
 
   refreshRecommendation: () => {
     const s = get();
@@ -373,6 +412,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         autoTranscript: cur.autoTranscript,
         language: cur.language || undefined,
         speakers: cur.speakers,
+        // A character with no appearance yet is a half-filled row in the UI,
+        // not a subject. Passing it through would fail the schema and surface
+        // as a validation error the user cannot act on.
+        characters: cur.characters.filter(
+          (c) => c.name.trim() && c.appearance.trim()
+        ),
         preservation: cur.preservation,
         source: cur.source,
         platformTargets: cur.platformTargets,

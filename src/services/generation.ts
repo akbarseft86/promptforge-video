@@ -26,6 +26,8 @@ export interface GenerationInput {
   autoTranscript: string; // filled by transcription service when available
   language?: string;
   speakers: Speaker[];
+  /** People the model must render and keep identical across shots. */
+  characters?: UniversalVideoProject["characters"];
   preservation: UniversalVideoProject["speaker_preservation"];
   source: UniversalVideoProject["source"];
   platformTargets: UniversalVideoProject["output"]["platform_targets"];
@@ -304,6 +306,9 @@ export function generateUniversalProject(
     },
     source: input.source,
     speakers: input.speakers,
+    // Omitted entirely when empty: an absent module reads as "not applicable"
+    // downstream, while an empty array invites the model to fill it.
+    ...(input.characters?.length ? { characters: input.characters } : {}),
     transcript: {
       source: transcriptSource,
       language: input.language,

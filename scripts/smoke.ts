@@ -458,6 +458,104 @@ assert(
   "wardrobe lines omitted when clothing preservation is off"
 );
 
+// ──────── characters ────────
+{
+  const cast = generateUniversalProject({
+    projectName: "Cast",
+    instructions: "cinematic product story",
+    customStyle: "",
+    preset: BUILTIN_PRESETS[0],
+    transcriptMode: "none",
+    manualTranscript: "",
+    autoTranscript: "",
+    speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+    characters: [
+      {
+        id: "character_1",
+        name: "Maya",
+        appearance: "South Asian woman, shoulder-length black hair, warm brown eyes",
+        role: "founder",
+        age_range: "30s",
+        wardrobe: "charcoal blazer over a white tee",
+        voice: "low, unhurried",
+        lock_across_shots: true,
+      },
+    ],
+    preservation: project.speaker_preservation,
+    source: { media_type: "text_only" },
+    platformTargets: ["instagram_reels"],
+    targetDurationSeconds: 20,
+  });
+
+  assert(cast.characters?.length === 1, "character reaches the Universal JSON");
+  assert(
+    validateProject(cast).every((r) => r.title !== "Schema Violation"),
+    "a project with characters is schema-valid"
+  );
+
+  const castPrompt = generateHumanPrompt(cast);
+  assert(castPrompt.includes("Maya"), "the character is named in the prompt");
+  assert(
+    castPrompt.includes("South Asian woman"),
+    "the appearance reaches the prompt"
+  );
+  assert(
+    castPrompt.includes("charcoal blazer"),
+    "the wardrobe reaches the prompt"
+  );
+  assert(
+    /identical in every shot/i.test(castPrompt),
+    "a locked character demands shot-to-shot consistency"
+  );
+  // Nobody was filmed, so claiming a filmed source invites a second person.
+  assert(
+    !/exactly as filmed/i.test(castPrompt),
+    "an invented cast is never described as filmed"
+  );
+
+  // Omitted rather than empty when there is no cast.
+  const noCast = generateUniversalProject({
+    projectName: "No cast",
+    instructions: "cinematic product story",
+    customStyle: "",
+    preset: BUILTIN_PRESETS[0],
+    transcriptMode: "none",
+    manualTranscript: "",
+    autoTranscript: "",
+    speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+    characters: [],
+    preservation: project.speaker_preservation,
+    source: { media_type: "text_only" },
+    platformTargets: ["instagram_reels"],
+    targetDurationSeconds: 20,
+  });
+  assert(
+    noCast.characters === undefined,
+    "an empty cast is omitted from the JSON, not emitted as []"
+  );
+
+  // An unlocked character should be called out, not silently accepted.
+  const drifting = structuredClone(cast);
+  drifting.characters![0].lock_across_shots = false;
+  assert(
+    validateProject(drifting).some(
+      (r) => r.title === "Character Not Locked Across Shots"
+    ),
+    "an unlocked character raises a warning"
+  );
+
+  // A link to a speaker that does not exist is an error, not a warning.
+  const dangling = structuredClone(cast);
+  dangling.characters![0].speaker_id = "speaker_9";
+  assert(
+    validateProject(dangling).some(
+      (r) =>
+        r.title === "Character Links To Missing Speaker" && r.severity === "ERROR"
+    ),
+    "a dangling speaker link is an error"
+  );
+}
+
 // ──────── auto-fix ────────
 // Each fix must actually clear the finding it is offered for, and must never
 // introduce a new error.
