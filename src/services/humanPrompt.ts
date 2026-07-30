@@ -14,6 +14,10 @@ import {
   joinNatural,
   phrasesFor,
 } from "./vocabulary";
+import {
+  characterSheet,
+  characterLockBlock,
+} from "../features/characters/sheet";
 
 /**
  * Renders the Universal JSON as a production-grade natural-language prompt.
@@ -151,27 +155,16 @@ export function generateHumanPrompt(
   // lock is stated as a rule rather than left implied by the description.
   const characters = p.characters ?? [];
   if (characters.length) {
-    for (const c of characters) {
-      const parts = [c.appearance.trim()];
-      if (c.age_range) parts.push(`aged ${c.age_range}`);
-      if (c.wardrobe) parts.push(`wearing ${c.wardrobe}`);
-      if (c.mannerisms) parts.push(c.mannerisms);
-      const role = c.role ? ` (${c.role})` : "";
-      blocks.push(`${c.name}${role}: ${parts.join("; ")}.`);
-      if (c.voice) blocks.push(`${c.name} speaks with ${c.voice}.`);
-    }
-
-    const locked = characters.filter((c) => c.lock_across_shots);
-    if (locked.length) {
-      const names = joinNatural(locked.map((c) => c.name));
-      const subject = locked.length === 1 ? "this character" : "these characters";
-      blocks.push(
-        `Keep ${names} identical in every shot: the same face, the same build, ` +
-          `the same hair and the same wardrobe, from every angle and in every ` +
-          `location. Do not restyle, re-cast, age, or redesign ${subject} ` +
-          `between shots, and do not substitute a similar-looking person.`
-      );
+    const lockBlock = characterLockBlock(characters);
+    if (lockBlock) {
+      // Emitted verbatim from the shared builder rather than reassembled here:
+      // the copy button, the export and this prompt must produce byte-identical
+      // text, or the same character stops being the same character.
+      blocks.push(lockBlock);
       cover("no_identity_change");
+    } else {
+      // Nothing is locked, so the cast is descriptive only.
+      for (const c of characters) blocks.push(characterSheet(c));
     }
 
     // A described character and a preserved filmed person are the same subject

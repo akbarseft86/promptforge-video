@@ -22,6 +22,10 @@ import {
 } from "../features/validator/validate";
 import { AutoFix, safeFixes } from "../features/validator/autofix";
 import {
+  loadCharacterLibrary,
+  saveCharacterLibrary,
+} from "../features/characters/library";
+import {
   MediaService,
   TranscriptionService,
   VideoAnalysisService,
@@ -95,6 +99,7 @@ interface ProjectState {
   language: string;
   speakers: Speaker[];
   characters: Character[];
+  characterLibrary: Character[];
   preservation: SpeakerPreservation;
   source: Source;
   videoObjectUrl: string | null;
@@ -135,6 +140,11 @@ interface ProjectState {
   addCharacter: () => void;
   updateCharacter: (id: string, patch: Partial<Character>) => void;
   removeCharacter: (id: string) => void;
+  /** Persist a project character for reuse in other projects. */
+  saveCharacterToLibrary: (id: string) => void;
+  /** Copy a saved character into this project under a fresh id. */
+  useCharacterFromLibrary: (libraryId: string) => void;
+  deleteCharacterFromLibrary: (libraryId: string) => void;
   togglePreservation: (key: keyof SpeakerPreservation) => void;
   refreshRecommendation: () => void;
   runAiPass: (file: File) => Promise<void>;
@@ -200,6 +210,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   language: "",
   speakers: [{ id: "speaker_1", label: "Speaker 1" }],
   characters: [],
+  characterLibrary: loadCharacterLibrary(),
   preservation: DEFAULT_PRESERVATION,
   source: DEFAULT_SOURCE,
   videoObjectUrl: null,
@@ -302,6 +313,41 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   removeCharacter: (id) =>
     get().set({ characters: get().characters.filter((c) => c.id !== id) }),
+
+  saveCharacterToLibrary: (id) => {
+    const c = get().characters.find((x) => x.id === id);
+    if (!c || !c.name.trim() || !c.appearance.trim()) return;
+    // Keyed by name: saving the same character twice should update it rather
+    // than leave two sheets that can drift apart.
+    const others = get().characterLibrary.filter(
+      (x) => x.name.trim().toLowerCase() !== c.name.trim().toLowerCase()
+    );
+    const next = [...others, { ...c }];
+    saveCharacterLibrary(next);
+    set({ characterLibrary: next });
+  },
+
+  useCharacterFromLibrary: (libraryId) => {
+    const saved = get().characterLibrary.find((c) => c.id === libraryId);
+    if (!saved) return;
+    const characters = get().characters;
+    const nextNum =
+      characters.reduce(
+        (max, c) => Math.max(max, Number(c.id.replace("character_", "")) || 0),
+        0
+      ) + 1;
+    // A fresh project id, but every descriptive field copied verbatim — the
+    // sheet has to come out identical to the one used in earlier clips.
+    get().set({
+      characters: [...characters, { ...saved, id: `character_${nextNum}` }],
+    });
+  },
+
+  deleteCharacterFromLibrary: (libraryId) => {
+    const next = get().characterLibrary.filter((c) => c.id !== libraryId);
+    saveCharacterLibrary(next);
+    set({ characterLibrary: next });
+  },
 
   refreshRecommendation: () => {
     const s = get();

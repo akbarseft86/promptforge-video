@@ -6,6 +6,7 @@ import { BUILTIN_PRESETS } from "../src/features/presets/presets";
 import { applyOverrides } from "../src/stores/project";
 import { fixFor, safeFixes } from "../src/features/validator/autofix";
 import { CHARACTER_ARCHETYPES } from "../src/features/characters/archetypes";
+import { characterSheet, missingIdentityTraits } from "../src/features/characters/sheet";
 import { CharacterSchema } from "../src/schemas/universal";
 
 const locked =
@@ -506,8 +507,9 @@ assert(
     "the wardrobe reaches the prompt"
   );
   assert(
-    /identical in every shot/i.test(castPrompt),
-    "a locked character demands shot-to-shot consistency"
+    /CHARACTER LOCK/.test(castPrompt) &&
+      /in every shot and every clip/i.test(castPrompt),
+    "a locked character demands consistency across shots and clips"
   );
   // Nobody was filmed, so claiming a filmed source invites a second person.
   assert(
@@ -555,6 +557,146 @@ assert(
         r.title === "Character Links To Missing Speaker" && r.severity === "ERROR"
     ),
     "a dangling speaker link is an error"
+  );
+}
+
+// ──────── character sheet: the cross-clip consistency contract ────────
+{
+  const maya = {
+    id: "character_1" as const,
+    name: "Maya",
+    appearance: "athletic build, high cheekbones, calm steady expression",
+    role: "founder",
+    age_range: "early 30s",
+    gender: "woman",
+    ethnicity: "Indonesian",
+    skin_tone: "golden brown",
+    eye_color: "dark brown",
+    hair: "long black straight",
+    distinguishing_features: "small scar above the left eyebrow",
+    wardrobe: "charcoal blazer over a white tee",
+    voice: "low, unhurried",
+    mannerisms: "talks with open hands",
+    seed: "884213",
+    lock_across_shots: true,
+  };
+
+  // The whole feature rests on this: same input, byte-identical output. If the
+  // sheet is not stable, the character is not stable.
+  assert(
+    characterSheet(maya) === characterSheet({ ...maya }),
+    "the same character always renders a byte-identical sheet"
+  );
+  // Field order must not follow object key order, or reordering the form
+  // fields would silently change every future clip.
+  const shuffled = JSON.parse(
+    JSON.stringify({
+      lock_across_shots: true,
+      hair: maya.hair,
+      name: maya.name,
+      seed: maya.seed,
+      appearance: maya.appearance,
+      gender: maya.gender,
+      role: maya.role,
+      ethnicity: maya.ethnicity,
+      skin_tone: maya.skin_tone,
+      eye_color: maya.eye_color,
+      distinguishing_features: maya.distinguishing_features,
+      wardrobe: maya.wardrobe,
+      voice: maya.voice,
+      mannerisms: maya.mannerisms,
+      age_range: maya.age_range,
+      id: maya.id,
+    })
+  );
+  assert(
+    characterSheet(shuffled) === characterSheet(maya),
+    "sheet order is fixed regardless of key order"
+  );
+
+  const sheet = characterSheet(maya);
+  for (const [label, value] of [
+    ["Gender", "woman"],
+    ["Ethnicity", "Indonesian"],
+    ["Skin tone", "golden brown"],
+    ["Eyes", "dark brown"],
+    ["Hair", "long black straight"],
+    ["Seed", "884213"],
+  ] as const) {
+    assert(sheet.includes(`${label}: ${value}`), `sheet carries ${label}`);
+  }
+
+  // A blank field must be dropped: an empty label reads as "unspecified" and
+  // invites the model to fill it differently on each run.
+  const sparse = characterSheet({
+    id: "character_1",
+    name: "Ghost",
+    appearance: "tall and thin",
+    lock_across_shots: true,
+  });
+  assert(!/:\s*$/m.test(sparse), "blank traits are omitted, never left empty");
+
+  assert(
+    missingIdentityTraits(maya).length === 0,
+    "a fully specified character reports no missing traits"
+  );
+  assert(
+    missingIdentityTraits({
+      id: "character_1",
+      name: "Ghost",
+      appearance: "tall and thin",
+      lock_across_shots: true,
+    }).length === 5,
+    "an unspecified character reports every missing identity trait"
+  );
+
+  // The prompt must reuse the shared builder verbatim, not re-describe the
+  // character in its own words.
+  const withMaya = generateUniversalProject({
+    projectName: "Scene 1",
+    instructions: "rooftop at sunset",
+    customStyle: "",
+    preset: BUILTIN_PRESETS[0],
+    transcriptMode: "none",
+    manualTranscript: "",
+    autoTranscript: "",
+    speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+    characters: [maya],
+    preservation: project.speaker_preservation,
+    source: { media_type: "text_only" },
+    platformTargets: ["instagram_reels"],
+    targetDurationSeconds: 10,
+  });
+  const promptText = generateHumanPrompt(withMaya);
+  assert(
+    promptText.includes(characterSheet(maya)),
+    "the prompt embeds the sheet verbatim"
+  );
+  assert(
+    /every other clip/i.test(promptText),
+    "the lock spans clips, not just shots within one clip"
+  );
+
+  // Two different scenes must carry the identical sheet — that is the entire
+  // point when a long piece is stitched from separate short generations.
+  const scene2 = generateUniversalProject({
+    projectName: "Scene 2",
+    instructions: "completely different setting, a kitchen at night",
+    customStyle: "moody",
+    preset: BUILTIN_PRESETS[2],
+    transcriptMode: "none",
+    manualTranscript: "",
+    autoTranscript: "",
+    speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+    characters: [maya],
+    preservation: project.speaker_preservation,
+    source: { media_type: "text_only" },
+    platformTargets: ["tiktok"],
+    targetDurationSeconds: 10,
+  });
+  assert(
+    generateHumanPrompt(scene2).includes(characterSheet(maya)),
+    "a different scene carries the same sheet unchanged"
   );
 }
 

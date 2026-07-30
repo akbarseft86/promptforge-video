@@ -248,3 +248,67 @@ export const CHARACTER_ARCHETYPES: CharacterArchetype[] = [
 export const ARCHETYPE_CATEGORIES = [
   ...new Set(CHARACTER_ARCHETYPES.map((a) => a.category)),
 ];
+
+/**
+ * Pick-lists for the identity traits.
+ *
+ * Offered as options rather than baked into the archetypes: attaching an
+ * ethnicity or skin tone to a job title would ship a stereotype as a default.
+ * Chosen deliberately by the user, the same value is exactly what pins the
+ * face down across separate generations. Every list is a suggestion — each
+ * field also accepts free text.
+ */
+export const GENDER_OPTIONS = [
+  "man",
+  "woman",
+  "non-binary person",
+  "androgynous person",
+];
+
+export const ETHNICITY_OPTIONS = [
+  "Indonesian",
+  "Southeast Asian",
+  "East Asian",
+  "South Asian",
+  "Middle Eastern",
+  "Black / African",
+  "White / European",
+  "Hispanic / Latino",
+  "Mixed heritage",
+];
+
+export const SKIN_TONE_OPTIONS = [
+  "very fair",
+  "fair",
+  "light olive",
+  "olive",
+  "tan",
+  "golden brown",
+  "deep brown",
+  "very deep",
+];
+
+export const EYE_COLOR_OPTIONS = [
+  "dark brown",
+  "brown",
+  "hazel",
+  "amber",
+  "green",
+  "blue",
+  "grey",
+];
+
+export const HAIR_OPTIONS = [
+  "short black straight",
+  "short dark brown wavy",
+  "medium black straight, parted",
+  "long black straight",
+  "long dark brown wavy",
+  "long black, tied back",
+  "shoulder-length brown, loose curls",
+  "tight black curls, cropped",
+  "buzz cut, black",
+  "shaved head",
+  "blonde, shoulder-length",
+  "grey, short and neat",
+];

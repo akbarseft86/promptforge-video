@@ -58,9 +58,25 @@ export const CharacterSchema = z.object({
   appearance: z.string().min(1),
   role: z.string().optional(),
   age_range: z.string().optional(),
+  // Identity traits are separate fields rather than prose because they must be
+  // restated word-for-word in every generation. A model re-rolls anything it
+  // is not told, so an unfilled field is a trait that will drift between
+  // clips — and prose paraphrased by hand drifts just as badly.
+  gender: z.string().optional(),
+  ethnicity: z.string().optional(),
+  skin_tone: z.string().optional(),
+  eye_color: z.string().optional(),
+  hair: z.string().optional(),
+  distinguishing_features: z.string().optional(),
   wardrobe: z.string().optional(),
   voice: z.string().optional(),
   mannerisms: z.string().optional(),
+  /**
+   * The generation seed that produced this look, recorded so the same value
+   * can be reused. Kept as a string: platforms differ on format, and it is
+   * carried through rather than interpreted.
+   */
+  seed: z.string().optional(),
   /** Links this character to a filmed speaker, when there is footage. */
   speaker_id: z.string().regex(/^speaker_\d+$/).optional(),
   /** Demand the same face, build and wardrobe in every shot. */

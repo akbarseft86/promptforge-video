@@ -5,7 +5,17 @@ import { ServerHealth } from "../services/aiProvider";
 import {
   CHARACTER_ARCHETYPES,
   ARCHETYPE_CATEGORIES,
+  GENDER_OPTIONS,
+  ETHNICITY_OPTIONS,
+  SKIN_TONE_OPTIONS,
+  EYE_COLOR_OPTIONS,
+  HAIR_OPTIONS,
 } from "../features/characters/archetypes";
+import {
+  characterSheet,
+  missingIdentityTraits,
+} from "../features/characters/sheet";
+import { copyToClipboard } from "../utils/clipboard";
 
 /** Custom presets group under "Custom"; built-ins under their own category. */
 const groupOf = (p: Preset) =>
@@ -41,6 +51,8 @@ export default function InputPanel() {
   const [fileError, setFileError] = useState<string | null>(null);
   /** null while unknown — the auto-transcript copy depends on it. */
   const [aiReady, setAiReady] = useState<boolean | null>(null);
+  const [sheetCopied, setSheetCopied] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
 
   useEffect(() => {
     ServerHealth.check().then(setAiReady);
@@ -268,6 +280,50 @@ export default function InputPanel() {
           from scratch. Locking a character demands the same face and wardrobe
           in every shot; generated video drifts otherwise.
         </p>
+        {/* Saved characters are the point of the library: a longer piece is
+            many separate generations, and each needs the identical sheet. */}
+        {s.characterLibrary.length > 0 && (
+          <div className="mb-2">
+            <label className="field-label" htmlFor="charlib">
+              Reuse a saved character
+            </label>
+            <div className="flex gap-1.5">
+              <select
+                id="charlib"
+                className="text-input py-1 text-xs flex-1"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) s.useCharacterFromLibrary(e.target.value);
+                }}
+              >
+                <option value="">Pick a saved character…</option>
+                {s.characterLibrary.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.role ? ` — ${c.role}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {s.characterLibrary.map((c) => (
+                <span
+                  key={c.id}
+                  className="chip bg-panel2 border border-line text-zinc-400"
+                >
+                  {c.name}
+                  <button
+                    className="ml-1 text-zinc-600 hover:text-red-400"
+                    onClick={() => s.deleteCharacterFromLibrary(c.id)}
+                    aria-label={`Delete ${c.name} from library`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         {s.characters.length === 0 && (
           <p className="text-[11px] text-zinc-600">
             None. The prompt will not describe who appears on screen.
@@ -343,13 +399,80 @@ export default function InputPanel() {
                 }
                 aria-label={`Appearance for ${c.name}`}
               />
-              {/* Templates leave skin tone and ethnicity out on purpose, and an
-                  unstated trait is one the model re-rolls on every shot. */}
-              {c.appearance.trim() && (
-                <p className="text-[11px] text-zinc-600">
-                  Templates leave skin tone and ethnicity blank — add them here
-                  if you want them held steady, since anything unstated drifts
-                  between shots.
+              {/* Identity traits: the fields that actually pin a face down
+                  across separate generations. Each is a free-text input with
+                  suggestions, so a value outside the list is always allowed. */}
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    ["gender", "Gender", GENDER_OPTIONS],
+                    ["ethnicity", "Ethnicity / race", ETHNICITY_OPTIONS],
+                    ["skin_tone", "Skin tone", SKIN_TONE_OPTIONS],
+                    ["eye_color", "Eye colour", EYE_COLOR_OPTIONS],
+                  ] as const
+                ).map(([key, label, options]) => (
+                  <div key={key}>
+                    <label className="field-label" htmlFor={`${key}-${c.id}`}>
+                      {label}
+                    </label>
+                    <input
+                      id={`${key}-${c.id}`}
+                      className="text-input py-1 text-xs"
+                      list={`${key}-opts`}
+                      value={c[key] ?? ""}
+                      placeholder="pick or type"
+                      onChange={(e) =>
+                        s.updateCharacter(c.id, {
+                          [key]: e.target.value || undefined,
+                        })
+                      }
+                    />
+                    <datalist id={`${key}-opts`}>
+                      {options.map((o) => (
+                        <option key={o} value={o} />
+                      ))}
+                    </datalist>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label className="field-label" htmlFor={`hair-${c.id}`}>
+                  Hair
+                </label>
+                <input
+                  id={`hair-${c.id}`}
+                  className="text-input py-1 text-xs"
+                  list="hair-opts"
+                  value={c.hair ?? ""}
+                  placeholder="pick or type — colour, length, texture"
+                  onChange={(e) =>
+                    s.updateCharacter(c.id, { hair: e.target.value || undefined })
+                  }
+                />
+                <datalist id="hair-opts">
+                  {HAIR_OPTIONS.map((o) => (
+                    <option key={o} value={o} />
+                  ))}
+                </datalist>
+              </div>
+              <input
+                className="text-input py-1 text-xs"
+                value={c.distinguishing_features ?? ""}
+                placeholder="Distinguishing features — scar, freckles, glasses, tattoo (optional)"
+                onChange={(e) =>
+                  s.updateCharacter(c.id, {
+                    distinguishing_features: e.target.value || undefined,
+                  })
+                }
+                aria-label={`Distinguishing features for ${c.name}`}
+              />
+              {/* Anything left blank is a trait the model re-rolls per clip,
+                  which is exactly how a face changes between scenes. */}
+              {c.appearance.trim() && missingIdentityTraits(c).length > 0 && (
+                <p className="text-[11px] text-amber-500/90">
+                  ⚠ {missingIdentityTraits(c).join(", ").toLowerCase()} not set —
+                  the model re-rolls anything unstated, so these will drift
+                  between clips.
                 </p>
               )}
               {!c.appearance.trim() && (
@@ -411,6 +534,15 @@ export default function InputPanel() {
                 }
                 aria-label={`Mannerisms for ${c.name}`}
               />
+              <input
+                className="text-input py-1 text-xs"
+                value={c.seed ?? ""}
+                placeholder="Seed that produced this look (optional) — reuse it in every clip"
+                onChange={(e) =>
+                  s.updateCharacter(c.id, { seed: e.target.value || undefined })
+                }
+                aria-label={`Seed for ${c.name}`}
+              />
               <label className="flex items-center justify-between text-xs cursor-pointer">
                 <span className="text-zinc-300">Lock across shots</span>
                 <input
@@ -424,6 +556,33 @@ export default function InputPanel() {
                   }
                 />
               </label>
+              {/* Copying the sheet is how the same face survives across the
+                  separate generations a long piece is stitched from. */}
+              {c.appearance.trim() && (
+                <div className="flex gap-2 flex-wrap pt-1">
+                  <button
+                    className="btn-ghost text-[11px] py-1"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(characterSheet(c));
+                      setSheetCopied(ok ? c.id : null);
+                      setTimeout(() => setSheetCopied(null), 1800);
+                    }}
+                  >
+                    {sheetCopied === c.id ? "✓ Copied" : "⧉ Copy character sheet"}
+                  </button>
+                  <button
+                    className="btn-ghost text-[11px] py-1"
+                    onClick={() => {
+                      s.saveCharacterToLibrary(c.id);
+                      setSavedNote(c.name);
+                      setTimeout(() => setSavedNote(null), 1800);
+                    }}
+                  >
+                    {savedNote === c.name ? "✓ Saved" : "☆ Save to library"}
+                  </button>
+                </div>
+              )}
+
               {/* Linking matters only when there is footage to preserve. */}
               {s.source.media_type === "video" && (
                 <div>
