@@ -5,6 +5,8 @@ import { ADAPTERS } from "../src/adapters";
 import { BUILTIN_PRESETS } from "../src/features/presets/presets";
 import { applyOverrides } from "../src/stores/project";
 import { fixFor, safeFixes } from "../src/features/validator/autofix";
+import { CHARACTER_ARCHETYPES } from "../src/features/characters/archetypes";
+import { CharacterSchema } from "../src/schemas/universal";
 
 const locked =
   "burung pipit, hinggap di dahan, terbang rendah, mencari padi, dunia sibuk jangan jadikan beban, pakai AI, konten jadi setiap hari";
@@ -553,6 +555,72 @@ assert(
         r.title === "Character Links To Missing Speaker" && r.severity === "ERROR"
     ),
     "a dangling speaker link is an error"
+  );
+}
+
+// ──────── character archetypes ────────
+{
+  assert(CHARACTER_ARCHETYPES.length > 0, "archetypes are available to pick");
+  assert(
+    new Set(CHARACTER_ARCHETYPES.map((a) => a.id)).size ===
+      CHARACTER_ARCHETYPES.length,
+    "archetype ids are unique"
+  );
+
+  for (const a of CHARACTER_ARCHETYPES) {
+    // An archetype whose appearance is blank would fail the schema the moment
+    // it is picked, which is worse than offering no template at all.
+    assert(
+      a.fields.appearance.trim().length > 0,
+      `archetype "${a.label}" has an appearance`
+    );
+    const parsed = CharacterSchema.safeParse({
+      id: "character_1",
+      name: a.label,
+      appearance: a.fields.appearance,
+      role: a.fields.role || undefined,
+      age_range: a.fields.age_range || undefined,
+      wardrobe: a.fields.wardrobe || undefined,
+      voice: a.fields.voice || undefined,
+      mannerisms: a.fields.mannerisms || undefined,
+      lock_across_shots: true,
+    });
+    assert(parsed.success, `archetype "${a.label}" produces a valid character`);
+  }
+
+  // Picking one must actually reach the prompt, not just the form.
+  const picked = CHARACTER_ARCHETYPES.find((a) => a.id === "fitness_coach")!;
+  const withArchetype = generateUniversalProject({
+    projectName: "Archetype",
+    instructions: "gym promo",
+    customStyle: "",
+    preset: BUILTIN_PRESETS[0],
+    transcriptMode: "none",
+    manualTranscript: "",
+    autoTranscript: "",
+    speakers: [{ id: "speaker_1", label: "Speaker 1" }],
+    characters: [
+      {
+        id: "character_1",
+        name: picked.label,
+        appearance: picked.fields.appearance,
+        wardrobe: picked.fields.wardrobe,
+        lock_across_shots: true,
+      },
+    ],
+    preservation: project.speaker_preservation,
+    source: { media_type: "text_only" },
+    platformTargets: ["tiktok"],
+    targetDurationSeconds: 15,
+  });
+  const archetypePrompt = generateHumanPrompt(withArchetype);
+  assert(
+    archetypePrompt.includes("athletic muscular build"),
+    "a picked archetype's appearance reaches the prompt"
+  );
+  assert(
+    validateProject(withArchetype).every((r) => r.title !== "Schema Violation"),
+    "a picked archetype yields a schema-valid project"
   );
 }
 

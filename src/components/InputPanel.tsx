@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useProjectStore, ProcessingState } from "../stores/project";
 import { Preset } from "../schemas/universal";
 import { ServerHealth } from "../services/aiProvider";
+import {
+  CHARACTER_ARCHETYPES,
+  ARCHETYPE_CATEGORIES,
+} from "../features/characters/archetypes";
 
 /** Custom presets group under "Custom"; built-ins under their own category. */
 const groupOf = (p: Preset) =>
@@ -260,8 +264,9 @@ export default function InputPanel() {
         </div>
         <p className="text-[11px] text-zinc-500 mb-2">
           Describe anyone the model has to <strong>invent</strong> rather than
-          preserve. Locking a character demands the same face and wardrobe in
-          every shot — generated video drifts otherwise.
+          preserve. Pick a template to start, then edit it — or write your own
+          from scratch. Locking a character demands the same face and wardrobe
+          in every shot; generated video drifts otherwise.
         </p>
         {s.characters.length === 0 && (
           <p className="text-[11px] text-zinc-600">
@@ -292,15 +297,61 @@ export default function InputPanel() {
                   ✕
                 </button>
               </div>
+              {/* Pick-then-edit: the archetype fills every field it owns, so
+                  choosing a different one always visibly changes the card. A
+                  name the user typed is kept — only the placeholder is replaced. */}
+              <select
+                className="text-input py-1 text-xs"
+                value=""
+                onChange={(e) => {
+                  const a = CHARACTER_ARCHETYPES.find(
+                    (x) => x.id === e.target.value
+                  );
+                  if (!a) return;
+                  const untouchedName = /^Character \d+$/.test(c.name.trim());
+                  s.updateCharacter(c.id, {
+                    ...a.fields,
+                    role: a.fields.role || undefined,
+                    age_range: a.fields.age_range || undefined,
+                    wardrobe: a.fields.wardrobe || undefined,
+                    voice: a.fields.voice || undefined,
+                    mannerisms: a.fields.mannerisms || undefined,
+                    ...(untouchedName ? { name: a.label } : {}),
+                  });
+                }}
+                aria-label={`Start ${c.name} from a template`}
+              >
+                <option value="">Start from a template…</option>
+                {ARCHETYPE_CATEGORIES.map((cat) => (
+                  <optgroup key={cat} label={cat}>
+                    {CHARACTER_ARCHETYPES.filter((a) => a.category === cat).map(
+                      (a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.label}
+                        </option>
+                      )
+                    )}
+                  </optgroup>
+                ))}
+              </select>
               <textarea
                 className="text-input text-xs min-h-[54px]"
                 value={c.appearance}
-                placeholder="Appearance — face, build, hair, skin tone. Required."
+                placeholder="Appearance — build, hair, grooming, expression. Required."
                 onChange={(e) =>
                   s.updateCharacter(c.id, { appearance: e.target.value })
                 }
                 aria-label={`Appearance for ${c.name}`}
               />
+              {/* Templates leave skin tone and ethnicity out on purpose, and an
+                  unstated trait is one the model re-rolls on every shot. */}
+              {c.appearance.trim() && (
+                <p className="text-[11px] text-zinc-600">
+                  Templates leave skin tone and ethnicity blank — add them here
+                  if you want them held steady, since anything unstated drifts
+                  between shots.
+                </p>
+              )}
               {!c.appearance.trim() && (
                 <p className="text-[11px] text-amber-500/90">
                   ⚠ Without an appearance this character is skipped — the model
