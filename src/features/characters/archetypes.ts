@@ -229,6 +229,84 @@ export const CHARACTER_ARCHETYPES: CharacterArchetype[] = [
       mannerisms: "",
     },
   },
+  // Hijab is described as its own trait — style, fabric, drape and coverage —
+  // because "wearing a hijab" alone leaves the model free to re-roll the
+  // shape and colour on every clip, which reads as a different person.
+  {
+    id: "hijabi_founder",
+    label: "Hijabi Business Owner",
+    category: "Business",
+    fields: {
+      appearance:
+        "wears a hijab, oval face fully framed by the scarf with no hair showing, composed and direct expression",
+      role: "business owner",
+      age_range: "early 30s",
+      wardrobe:
+        "neatly pinned plain satin hijab draped over the chest, tailored blazer over a long-sleeved top",
+      voice: "calm and measured, warm but businesslike",
+      mannerisms: "still upper body, precise hand gestures kept low",
+    },
+  },
+  {
+    id: "hijabi_creator",
+    label: "Hijabi Creator",
+    category: "Creator",
+    fields: {
+      appearance:
+        "wears a hijab, soft round face fully framed by the scarf with no hair showing, bright animated expression",
+      role: "content creator",
+      age_range: "mid 20s",
+      wardrobe:
+        "lightweight pastel jersey hijab in a relaxed drape, oversized knit and long sleeves",
+      voice: "warm, chatty, close to the mic",
+      mannerisms: "expressive hands near the face, frequent smiles",
+    },
+  },
+  {
+    id: "hijabi_educator",
+    label: "Hijabi Educator",
+    category: "Education",
+    fields: {
+      appearance:
+        "wears a hijab, calm settled face fully framed by the scarf with no hair showing, patient expression",
+      role: "instructor",
+      age_range: "30s",
+      wardrobe:
+        "plain dark hijab pinned close, loose long tunic over straight trousers",
+      voice: "clear and deliberate, pauses after each idea",
+      mannerisms: "flat open palm marking steps in sequence",
+    },
+  },
+  {
+    id: "hijabi_health_professional",
+    label: "Hijabi Health Professional",
+    category: "Education",
+    fields: {
+      appearance:
+        "wears a hijab, tidy face fully framed by the scarf with no hair showing, reassuring expression",
+      role: "clinician",
+      age_range: "30s",
+      wardrobe:
+        "plain hijab tucked inside the collar, white coat over long-sleeved scrubs",
+      voice: "even, careful, never rushed",
+      mannerisms: "steady hands, small confirming nods",
+    },
+  },
+  {
+    id: "hijabi_sport",
+    label: "Hijabi Fitness Coach",
+    category: "Creator",
+    fields: {
+      appearance:
+        "wears a sports hijab, strong athletic build, face fully framed by the scarf with no hair showing, high-energy expression",
+      role: "coach",
+      age_range: "late 20s",
+      wardrobe:
+        "fitted sports hijab that stays put through movement, long-sleeved training top and full-length leggings",
+      voice: "loud, clipped, motivating",
+      mannerisms: "wide stance, chops the air to emphasise counts",
+    },
+  },
   {
     id: "kid_presenter",
     label: "Young Presenter",
@@ -298,7 +376,24 @@ export const EYE_COLOR_OPTIONS = [
   "grey",
 ];
 
+/**
+ * Head-covering styles, offered on the Hair field: for a covered character the
+ * scarf is what frames the face, so it belongs where hair would go. Naming the
+ * style, drape and coverage keeps the silhouette from being re-rolled per clip.
+ */
+export const HIJAB_OPTIONS = [
+  "hijab — plain satin, pinned neatly, draped over the chest, no hair showing",
+  "hijab — lightweight jersey, relaxed drape, no hair showing",
+  "hijab — chiffon, layered and pinned at the shoulder, no hair showing",
+  "hijab — pashmina, wrapped and tucked, no hair showing",
+  "hijab — instant/slip-on, close-fitting, no hair showing",
+  "hijab — sports hijab, fitted and secure through movement, no hair showing",
+  "khimar — long one-piece covering to the waist, no hair showing",
+  "niqab — face veil with only the eyes visible",
+];
+
 export const HAIR_OPTIONS = [
+  ...HIJAB_OPTIONS,
   "short black straight",
   "short dark brown wavy",
   "medium black straight, parted",

@@ -3,12 +3,14 @@ import InputPanel from "./InputPanel";
 import TimelinePanel from "./TimelinePanel";
 import EditorPanel from "./EditorPanel";
 import { useProjectStore } from "../stores/project";
+import { useLang } from "../i18n";
 
 type MobileTab = "input" | "timeline" | "editor";
 
 export default function Workspace() {
   const refreshRecommendation = useProjectStore((s) => s.refreshRecommendation);
   const [mobileTab, setMobileTab] = useState<MobileTab>("input");
+  const { lang, setLang, t } = useLang();
 
   useEffect(() => {
     refreshRecommendation();
@@ -17,22 +19,52 @@ export default function Workspace() {
 
   return (
     <div>
+      {/* Language applies to the interface only — the generated prompt stays
+          English, which is what the video models are tuned on. */}
+      <div className="flex justify-end mb-2">
+        <div
+          className="flex gap-1"
+          role="group"
+          aria-label="Interface language / Bahasa antarmuka"
+        >
+          {(
+            [
+              ["en", "EN"],
+              ["id", "ID"],
+            ] as const
+          ).map(([code, label]) => (
+            <button
+              key={code}
+              onClick={() => setLang(code)}
+              aria-pressed={lang === code}
+              className={`tab-btn ${
+                lang === code
+                  ? "bg-primary/15 text-primary"
+                  : "bg-panel2 text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Mobile/tablet tab switcher */}
       <div className="flex gap-1 mb-3 lg:hidden" role="tablist" aria-label="Workspace panels">
         {(
           [
-            ["input", "Input"],
-            ["timeline", "Timeline"],
-            ["editor", "JSON / Editor"],
+            ["input", t("panel.input", "Input")],
+            ["timeline", t("panel.timeline", "Timeline")],
+            ["editor", t("panel.editor", "JSON / Editor")],
           ] as const
-        ).map(([t, label]) => (
+        ).map(([id, label]) => (
           <button
-            key={t}
+            key={id}
             role="tab"
-            aria-selected={mobileTab === t}
-            onClick={() => setMobileTab(t)}
+            aria-selected={mobileTab === id}
+            onClick={() => setMobileTab(id)}
             className={`tab-btn flex-1 ${
-              mobileTab === t
+              mobileTab === id
                 ? "bg-primary/15 text-primary"
                 : "bg-panel2 text-zinc-400"
             }`}

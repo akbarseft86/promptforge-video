@@ -17,6 +17,7 @@ import {
 } from "../features/characters/sheet";
 import { SHIPPED_CHARACTERS } from "../features/characters/library";
 import { copyToClipboard } from "../utils/clipboard";
+import { useLang } from "../i18n";
 
 /** Custom presets group under "Custom"; built-ins under their own category. */
 const groupOf = (p: Preset) =>
@@ -56,6 +57,7 @@ export default function InputPanel() {
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [libNote, setLibNote] = useState<string | null>(null);
   const libFileRef = useRef<HTMLInputElement>(null);
+  const { t } = useLang();
 
   useEffect(() => {
     ServerHealth.check().then(setAiReady);
@@ -164,8 +166,8 @@ export default function InputPanel() {
             onClick={() => fileRef.current?.click()}
           >
             <span aria-hidden>＋</span>
-            <span>Attach source video</span>
-            <span className="ml-auto text-zinc-700">optional</span>
+            <span>{t("source.attach", "Attach source video")}</span>
+            <span className="ml-auto text-zinc-700">{t("source.optional", "optional")}</span>
           </button>
         )}
         <input
@@ -182,13 +184,13 @@ export default function InputPanel() {
       {fileError && <p className="text-xs text-red-400 -mt-3">{fileError}</p>}
 
       <div>
-        <span className="field-label">Transcript</span>
+        <span className="field-label">{t("transcript.label", "Transcript")}</span>
         <div className="flex gap-1 mb-2" role="tablist" aria-label="Transcript mode">
           {(
             [
-              ["manual", "Manual Locked"],
-              ["auto", "Auto from Vocal"],
-              ["none", "None"],
+              ["manual", t("transcript.manual", "Manual Locked")],
+              ["auto", t("transcript.auto", "Auto from Vocal")],
+              ["none", t("transcript.none", "None")],
             ] as const
           ).map(([mode, label]) => (
             <button
@@ -210,9 +212,9 @@ export default function InputPanel() {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="chip bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                🔒 LOCKED TRANSCRIPT
+                {t("transcript.lockedChip", "🔒 LOCKED TRANSCRIPT")}
               </span>
-              <span className="text-[11px] text-zinc-500">AI cannot rewrite this text.</span>
+              <span className="text-[11px] text-zinc-500">{t("transcript.lockedHint", "AI cannot rewrite this text.")}</span>
             </div>
             <p className="text-[11px] text-zinc-500 mb-1.5">
               The most reliable path: type what is actually said in the video.
@@ -221,14 +223,14 @@ export default function InputPanel() {
             </p>
             <textarea
               className="text-input font-mono min-h-[90px]"
-              placeholder="Paste the exact dialogue…"
+              placeholder={t("transcript.placeholder", "Paste the exact dialogue…")}
               value={s.manualTranscript}
               onChange={(e) => s.set({ manualTranscript: e.target.value })}
               aria-label="Manual locked transcript"
             />
             <input
               className="text-input mt-2"
-              placeholder="Language code (e.g. id, en) — optional"
+              placeholder={t("transcript.langPlaceholder", "Language code (e.g. id, en) — optional")}
               value={s.language}
               onChange={(e) => s.set({ language: e.target.value })}
               aria-label="Transcript language"
@@ -269,12 +271,12 @@ export default function InputPanel() {
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="field-label mb-0">Characters</span>
+          <span className="field-label mb-0">{t("char.title", "Characters")}</span>
           <button
             className="text-[11px] text-primary hover:underline"
             onClick={() => s.addCharacter()}
           >
-            ＋ Add character
+            {t("char.add", "＋ Add character")}
           </button>
         </div>
         <p className="text-[11px] text-zinc-500 mb-2">
@@ -288,7 +290,7 @@ export default function InputPanel() {
         {(s.characterLibrary.length > 0 || SHIPPED_CHARACTERS.length > 0) && (
           <div className="mb-2">
             <label className="field-label" htmlFor="charlib">
-              Reuse a character
+              {t("char.reuse", "Reuse a character")}
             </label>
             <div className="flex gap-1.5">
               <select
@@ -299,11 +301,11 @@ export default function InputPanel() {
                   if (e.target.value) s.useCharacterFromLibrary(e.target.value);
                 }}
               >
-                <option value="">Pick a character…</option>
+                <option value="">{t("char.pick", "Pick a character…")}</option>
                 {/* Shipped and saved are kept apart: one reaches the whole
                     team, the other only this browser. */}
                 {SHIPPED_CHARACTERS.length > 0 && (
-                  <optgroup label="Shipped with the app">
+                  <optgroup label={t("char.shipped", "Shipped with the app")}>
                     {SHIPPED_CHARACTERS.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -313,7 +315,7 @@ export default function InputPanel() {
                   </optgroup>
                 )}
                 {s.characterLibrary.length > 0 && (
-                  <optgroup label="Saved in this browser">
+                  <optgroup label={t("char.savedHere", "Saved in this browser")}>
                     {s.characterLibrary.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -358,13 +360,13 @@ export default function InputPanel() {
                   URL.revokeObjectURL(a.href);
                 }}
               >
-                ⭳ Export library
+                {t("char.export", "⭳ Export library")}
               </button>
               <button
                 className="text-[11px] text-primary hover:underline"
                 onClick={() => libFileRef.current?.click()}
               >
-                ⭱ Import
+                {t("char.import", "⭱ Import")}
               </button>
               <input
                 ref={libFileRef}
@@ -392,7 +394,7 @@ export default function InputPanel() {
         )}
         {s.characters.length === 0 && (
           <p className="text-[11px] text-zinc-600">
-            None. The prompt will not describe who appears on screen.
+            {t("char.none", "None. The prompt will not describe who appears on screen.")}
           </p>
         )}
         <div className="space-y-2">
@@ -405,7 +407,7 @@ export default function InputPanel() {
                 <input
                   className="text-input py-1 text-xs flex-1"
                   value={c.name}
-                  placeholder="Name"
+                  placeholder={t("char.namePlaceholder", "Name")}
                   onChange={(e) =>
                     s.updateCharacter(c.id, { name: e.target.value })
                   }
@@ -443,7 +445,7 @@ export default function InputPanel() {
                 }}
                 aria-label={`Start ${c.name} from a template`}
               >
-                <option value="">Start from a template…</option>
+                <option value="">{t("char.template", "Start from a template…")}</option>
                 {ARCHETYPE_CATEGORIES.map((cat) => (
                   <optgroup key={cat} label={cat}>
                     {CHARACTER_ARCHETYPES.filter((a) => a.category === cat).map(
@@ -459,7 +461,7 @@ export default function InputPanel() {
               <textarea
                 className="text-input text-xs min-h-[54px]"
                 value={c.appearance}
-                placeholder="Appearance — build, hair, grooming, expression. Required."
+                placeholder={t("char.appearancePlaceholder", "Appearance — build, hair, grooming, expression. Required.")}
                 onChange={(e) =>
                   s.updateCharacter(c.id, { appearance: e.target.value })
                 }
@@ -471,10 +473,10 @@ export default function InputPanel() {
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
-                    ["gender", "Gender", GENDER_OPTIONS],
-                    ["ethnicity", "Ethnicity / race", ETHNICITY_OPTIONS],
-                    ["skin_tone", "Skin tone", SKIN_TONE_OPTIONS],
-                    ["eye_color", "Eye colour", EYE_COLOR_OPTIONS],
+                    ["gender", t("char.gender", "Gender"), GENDER_OPTIONS],
+                    ["ethnicity", t("char.ethnicity", "Ethnicity / race"), ETHNICITY_OPTIONS],
+                    ["skin_tone", t("char.skin", "Skin tone"), SKIN_TONE_OPTIONS],
+                    ["eye_color", t("char.eyes", "Eye colour"), EYE_COLOR_OPTIONS],
                   ] as const
                 ).map(([key, label, options]) => (
                   <div key={key}>
@@ -486,7 +488,7 @@ export default function InputPanel() {
                       className="text-input py-1 text-xs"
                       list={`${key}-opts`}
                       value={c[key] ?? ""}
-                      placeholder="pick or type"
+                      placeholder={t("char.pickOrType", "pick or type")}
                       onChange={(e) =>
                         s.updateCharacter(c.id, {
                           [key]: e.target.value || undefined,
@@ -510,7 +512,7 @@ export default function InputPanel() {
                   className="text-input py-1 text-xs"
                   list="hair-opts"
                   value={c.hair ?? ""}
-                  placeholder="pick or type — colour, length, texture"
+                  placeholder={t("char.hairPlaceholder", "pick or type — colour, length, texture, or hijab style")}
                   onChange={(e) =>
                     s.updateCharacter(c.id, { hair: e.target.value || undefined })
                   }
@@ -524,7 +526,7 @@ export default function InputPanel() {
               <input
                 className="text-input py-1 text-xs"
                 value={c.distinguishing_features ?? ""}
-                placeholder="Distinguishing features — scar, freckles, glasses, tattoo (optional)"
+                placeholder={t("char.features", "Distinguishing features — scar, freckles, glasses, tattoo (optional)")}
                 onChange={(e) =>
                   s.updateCharacter(c.id, {
                     distinguishing_features: e.target.value || undefined,
@@ -551,7 +553,7 @@ export default function InputPanel() {
                 <input
                   className="text-input py-1 text-xs"
                   value={c.role ?? ""}
-                  placeholder="Role (optional)"
+                  placeholder={t("char.rolePlaceholder", "Role (optional)")}
                   onChange={(e) =>
                     s.updateCharacter(c.id, { role: e.target.value || undefined })
                   }
@@ -560,7 +562,7 @@ export default function InputPanel() {
                 <input
                   className="text-input py-1 text-xs"
                   value={c.age_range ?? ""}
-                  placeholder="Age range (optional)"
+                  placeholder={t("char.agePlaceholder", "Age range (optional)")}
                   onChange={(e) =>
                     s.updateCharacter(c.id, {
                       age_range: e.target.value || undefined,
@@ -571,7 +573,7 @@ export default function InputPanel() {
                 <input
                   className="text-input py-1 text-xs"
                   value={c.wardrobe ?? ""}
-                  placeholder="Wardrobe (optional)"
+                  placeholder={t("char.wardrobePlaceholder", "Wardrobe (optional)")}
                   onChange={(e) =>
                     s.updateCharacter(c.id, {
                       wardrobe: e.target.value || undefined,
@@ -582,7 +584,7 @@ export default function InputPanel() {
                 <input
                   className="text-input py-1 text-xs"
                   value={c.voice ?? ""}
-                  placeholder="Voice (optional)"
+                  placeholder={t("char.voicePlaceholder", "Voice (optional)")}
                   onChange={(e) =>
                     s.updateCharacter(c.id, { voice: e.target.value || undefined })
                   }
@@ -592,7 +594,7 @@ export default function InputPanel() {
               <input
                 className="text-input py-1 text-xs"
                 value={c.mannerisms ?? ""}
-                placeholder="Mannerisms / how they carry themselves (optional)"
+                placeholder={t("char.mannerismsPlaceholder", "Mannerisms / how they carry themselves (optional)")}
                 onChange={(e) =>
                   s.updateCharacter(c.id, {
                     mannerisms: e.target.value || undefined,
@@ -603,14 +605,14 @@ export default function InputPanel() {
               <input
                 className="text-input py-1 text-xs"
                 value={c.seed ?? ""}
-                placeholder="Seed that produced this look (optional) — reuse it in every clip"
+                placeholder={t("char.seedPlaceholder", "Seed that produced this look (optional) — reuse it in every clip")}
                 onChange={(e) =>
                   s.updateCharacter(c.id, { seed: e.target.value || undefined })
                 }
                 aria-label={`Seed for ${c.name}`}
               />
               <label className="flex items-center justify-between text-xs cursor-pointer">
-                <span className="text-zinc-300">Lock across shots</span>
+                <span className="text-zinc-300">{t("char.lock", "Lock across shots")}</span>
                 <input
                   type="checkbox"
                   className="accent-violet-500 h-3.5 w-3.5"
@@ -634,7 +636,7 @@ export default function InputPanel() {
                       setTimeout(() => setSheetCopied(null), 1800);
                     }}
                   >
-                    {sheetCopied === c.id ? "✓ Copied" : "⧉ Copy character sheet"}
+                    {sheetCopied === c.id ? t("char.copied", "✓ Copied") : t("char.copySheet", "⧉ Copy character sheet")}
                   </button>
                   <button
                     className="btn-ghost text-[11px] py-1"
@@ -644,7 +646,7 @@ export default function InputPanel() {
                       setTimeout(() => setSavedNote(null), 1800);
                     }}
                   >
-                    {savedNote === c.name ? "✓ Saved" : "☆ Save to library"}
+                    {savedNote === c.name ? t("char.saved", "✓ Saved") : t("char.save", "☆ Save to library")}
                   </button>
                 </div>
               )}
@@ -653,7 +655,7 @@ export default function InputPanel() {
               {s.source.media_type === "video" && (
                 <div>
                   <label className="field-label" htmlFor={`spk-${c.id}`}>
-                    Is this the person on camera?
+                    {t("char.onCamera", "Is this the person on camera?")}
                   </label>
                   <select
                     id={`spk-${c.id}`}
@@ -665,7 +667,7 @@ export default function InputPanel() {
                       })
                     }
                   >
-                    <option value="">No — a separate, generated person</option>
+                    <option value="">{t("char.notOnCamera", "No — a separate, generated person")}</option>
                     {s.speakers.map((sp) => (
                       <option key={sp.id} value={sp.id}>
                         Yes — {sp.label}
@@ -681,12 +683,12 @@ export default function InputPanel() {
 
       <div>
         <label className="field-label" htmlFor="instructions">
-          Editing Instructions
+          {t("instructions.label", "Editing Instructions")}
         </label>
         <textarea
           id="instructions"
           className="text-input min-h-[110px]"
-          placeholder="Describe how you want this video edited…"
+          placeholder={t("instructions.placeholder", "Describe how you want this video edited…")}
           value={s.instructions}
           onChange={(e) => s.set({ instructions: e.target.value })}
           onBlur={() => s.refreshRecommendation()}
@@ -694,12 +696,12 @@ export default function InputPanel() {
       </div>
 
       <div>
-        <span className="field-label">Editing Preset</span>
+        <span className="field-label">{t("preset.label", "Editing Preset")}</span>
         {s.recommendedPresetId && (
           <div className="mb-2 rounded-lg bg-primary/10 border border-primary/25 p-2.5 text-xs">
             <div className="flex items-center justify-between gap-2">
               <span className="text-primary font-medium">
-                ✨ AI Recommended:{" "}
+                {t("preset.recommended", "✨ AI Recommended:")}{" "}
                 {allPresets.find((p) => p.id === s.recommendedPresetId)?.name}
               </span>
               {s.selectedPresetId !== s.recommendedPresetId && (
@@ -707,7 +709,7 @@ export default function InputPanel() {
                   className="text-primary underline"
                   onClick={() => s.set({ selectedPresetId: s.recommendedPresetId! })}
                 >
-                  Use it
+                  {t("preset.use", "Use it")}
                 </button>
               )}
             </div>
@@ -879,7 +881,7 @@ export default function InputPanel() {
 
       <div>
         <label className="field-label" htmlFor="customStyle">
-          Custom Style (optional)
+          {t("customStyle.label", "Custom Style (optional)")}
         </label>
         <input
           id="customStyle"
@@ -897,7 +899,9 @@ export default function InputPanel() {
           disabled={busy}
           onClick={() => s.generate()}
         >
-          {busy ? STATE_LABELS[s.processing] : "⚡ Generate Universal JSON"}
+          {busy
+            ? t(`state.${s.processing}`, STATE_LABELS[s.processing])
+            : t("generate.button", "⚡ Generate Universal JSON")}
         </button>
         {s.processing === "error" && (
           <p className="text-xs text-red-400 mt-2" role="alert">

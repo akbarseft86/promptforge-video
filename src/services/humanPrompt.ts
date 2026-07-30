@@ -37,12 +37,45 @@ export interface PromptOptions {
   includeFidelity?: boolean;
 }
 
-export function generateHumanPrompt(
+/** One headed group of the prompt, for the readable preview. */
+export interface PromptSection {
+  title: string;
+  body: string;
+}
+
+/** Consecutive blocks from the same section become one group. */
+function groupSections(
+  blocks: string[],
+  sections: string[]
+): PromptSection[] {
+  const out: PromptSection[] = [];
+  blocks.forEach((body, i) => {
+    const title = sections[i] ?? "Overview";
+    const last = out[out.length - 1];
+    if (last && last.title === title) last.body += `\n\n${body}`;
+    else out.push({ title, body });
+  });
+  return out;
+}
+
+function buildPrompt(
   p: UniversalVideoProject,
   options: PromptOptions = {}
-): string {
+): { text: string; sections: PromptSection[] } {
   const { includeTimeline = false, includeFidelity = true } = options;
   const blocks: string[] = [];
+  // Each block records which section produced it, so the UI can show a
+  // readable, headed preview. The joined text is unchanged — the labels are
+  // presentation only and never reach the model.
+  const blockSections: string[] = [];
+  let currentSection = "Overview";
+  const setSection = (name: string) => {
+    currentSection = name;
+  };
+  const push = (text: string) => {
+    blocks.push(text);
+    blockSections.push(currentSection);
+  };
   const bullets = (items: string[]) => items.map((i) => `• ${i}`).join("\n");
 
   // A rule stated once reads as a specification; the same rule restated in
@@ -55,6 +88,7 @@ export function generateHumanPrompt(
   const cover = (...keys: ConstraintKey[]) => keys.forEach((k) => covered.add(k));
 
   // ---------- 1. Opening transformation statement ----------
+  setSection("Overview");
   const hasVideo = p.source.media_type === "video";
   // Someone is speaking on camera whenever the edit is built around keeping a
   // speaker intact — not merely when a transcript happens to be available.
@@ -114,11 +148,12 @@ export function generateHumanPrompt(
   if (p.motion_graphics?.enabled) openingFeatures.push("luxury motion graphics");
   openingFeatures.push(`professional ${p.visual_direction.style} visuals`);
 
-  blocks.push(
+  push(
     `Transform this ${subject} into a ${quality}, ${retention}${format} with ${joinNatural(openingFeatures)}.`
   );
 
   // ---------- 2. Preservation ----------
+  setSection("Preservation");
   const preserved = (
     Object.keys(p.speaker_preservation) as (keyof typeof p.speaker_preservation)[]
   )
@@ -131,7 +166,7 @@ export function generateHumanPrompt(
     .map((phrase) => (generatedCast ? phrase.replace(/^original /, "same ") : phrase));
 
   if (preserved.length) {
-    blocks.push(
+    push(
       generatedCast
         ? `Hold the cast consistent throughout: keep the ${joinNatural(preserved)} unchanged from shot to shot.`
         : editsFootage
@@ -148,6 +183,7 @@ export function generateHumanPrompt(
   }
 
   // ---------- 2a. Characters ----------
+  setSection("Characters");
   // Placed immediately after preservation because the two answer the same
   // question — who is on screen — from opposite directions: preservation
   // protects a filmed person, characters specify an invented one. Drift
@@ -160,11 +196,11 @@ export function generateHumanPrompt(
       // Emitted verbatim from the shared builder rather than reassembled here:
       // the copy button, the export and this prompt must produce byte-identical
       // text, or the same character stops being the same character.
-      blocks.push(lockBlock);
+      push(lockBlock);
       cover("no_identity_change");
     } else {
       // Nothing is locked, so the cast is descriptive only.
-      for (const c of characters) blocks.push(characterSheet(c));
+      for (const c of characters) push(characterSheet(c));
     }
 
     // A described character and a preserved filmed person are the same subject
@@ -172,7 +208,7 @@ export function generateHumanPrompt(
     // and may render a second person alongside the one it was told to keep.
     const linked = characters.filter((c) => c.speaker_id);
     if (linked.length && editsFootage) {
-      blocks.push(
+      push(
         `${joinNatural(linked.map((c) => c.name))} ${
           linked.length === 1 ? "is" : "are"
         } the person already on camera — describe and preserve, do not add ` +
@@ -182,6 +218,7 @@ export function generateHumanPrompt(
   }
 
   // ---------- 2b. Image fidelity ----------
+  setSection("Image fidelity");
   // Placed directly after preservation: stacking depth-of-field, bokeh, glow
   // and relighting reliably softens the subject unless sharpness is demanded.
   const fid = includeFidelity ? p.image_fidelity : undefined;
@@ -206,7 +243,7 @@ export function generateHumanPrompt(
         `Match the sharpness and detail of the source footage. The result must never look softer, hazier, or lower-resolution than the original.`
       );
     if (fidLines.length) {
-      blocks.push(
+      push(
         `Image fidelity — the speaker must stay sharp:\n${fidLines.map((l) => `• ${l}`).join("\n")}`
       );
       cover("no_subject_blur", "no_facial_detail_loss", "no_resolution_loss");
@@ -214,27 +251,29 @@ export function generateHumanPrompt(
   }
 
   // ---------- 3. Background replacement ----------
+  setSection("Background");
   if (p.visual_direction.background_replacement) {
     const target =
       p.visual_direction.background_description ??
       p.visual_direction.environment ??
       "a premium studio environment";
     const elements = p.visual_direction.background_elements ?? [];
-    blocks.push(
+    push(
       elements.length
         ? `Replace the original background with ${target}, featuring ${joinNatural(elements)}.`
         : `Replace the original background with ${target}.`
     );
   } else if (p.visual_direction.environment) {
-    blocks.push(`Environment direction: ${p.visual_direction.environment}.`);
+    push(`Environment direction: ${p.visual_direction.environment}.`);
   }
 
   // ---------- 4. Relighting ----------
+  setSection("Relighting");
   if (p.visual_direction.cinematic_relighting) {
     const skin = p.visual_direction.preserve_skin_tones
       ? " while maintaining realistic skin tones"
       : "";
-    blocks.push(
+    push(
       p.visual_direction.background_replacement
         ? `Naturally relight the speaker to perfectly match the new environment${skin} and avoiding green-screen artifacts.`
         : `Apply subtle cinematic relighting${skin} without distorting the subject.`
@@ -242,6 +281,7 @@ export function generateHumanPrompt(
   }
 
   // ---------- 5. On-screen text integrity ----------
+  setSection("On-screen text");
   const c = p.captions;
   const hasTranscript = p.transcript.source !== "none";
 
@@ -250,12 +290,12 @@ export function generateHumanPrompt(
       CAPTION_POSITION_PHRASES[c.position ?? "beside_speaker"] ??
       "in a readable position";
 
-    blocks.push(
+    push(
       `Display large animated text ${position} using the EXACT words spoken in the original audio.`
     );
 
     if (c.word_for_word) {
-      blocks.push(
+      push(
         `The on-screen text must be a perfect word-for-word transcription of the speaker's dialogue.`
       );
     }
@@ -273,14 +313,14 @@ export function generateHumanPrompt(
     if (p.constraints.no_keyword_substitution)
       noList.push("Do NOT generate keywords.");
     if (noList.length) {
-      blocks.push(noList.join("\n"));
+      push(noList.join("\n"));
       cover(
         "no_dialogue_rewrite",
         "no_missing_dialogue",
         "no_translation",
         "no_keyword_substitution"
       );
-      blocks.push(
+      push(
         `Every displayed word must exactly match the original spoken audio.`
       );
     }
@@ -289,7 +329,7 @@ export function generateHumanPrompt(
     // (see section 13) — practitioners report the spoken lines landing more
     // reliably when they close the prompt rather than sit in its middle.
     if (hasTranscript && t.text.trim()) {
-      blocks.push(
+      push(
         `The exact words to display are supplied at the very end of this prompt, under LOCKED TRANSCRIPT. Use that text and nothing else as the source for every on-screen word.`
       );
     }
@@ -345,13 +385,13 @@ export function generateHumanPrompt(
         `Highlight important words using elegant ${joinNatural(c.highlight_colors)} accents while keeping the exact wording unchanged.`
       );
 
-    blocks.push(`Caption behavior:\n${bullets(behavior)}`);
+    push(`Caption behavior:\n${bullets(behavior)}`);
     if (!c.allow_future_dialogue) cover("no_future_dialogue");
     if (c.prevent_face_overlap) cover("no_caption_face_overlap");
     if (c.typography) cover("no_unreadable_text");
   } else if (hasTranscript && p.transcript.text.trim()) {
     // No captions module, but a locked transcript still governs the dialogue.
-    blocks.push(
+    push(
       `The dialogue is LOCKED and must be used word-for-word, with no rewriting, translation, insertion, deletion, or repetition:\n"${p.transcript.text}"`
     );
   } else if (p.transcription_requirement?.required) {
@@ -418,7 +458,7 @@ export function generateHumanPrompt(
     if (!tr.allow_grammar_correction)
       prohibitions.push(`Do NOT correct the speaker's grammar or wording.`);
 
-    blocks.push(
+    push(
       [
         `The on-screen text must match the spoken audio exactly.`,
         ``,
@@ -447,6 +487,7 @@ export function generateHumanPrompt(
   }
 
   // ---------- 6. Premium editing ----------
+  setSection("Editing");
   const editingItems: string[] = [];
   for (const key of [
     "dynamic_zoom",
@@ -476,11 +517,12 @@ export function generateHumanPrompt(
     );
 
   if (editingItems.length)
-    blocks.push(
+    push(
       `Enhance the video with premium editing:\n${bullets([...new Set(editingItems)])}`
     );
 
   // ---------- 7. Sound design ----------
+  setSection("Sound design");
   if (p.sound_design?.enabled) {
     const sfx = phrasesFor(p.sound_design.palette, SFX_PHRASES);
     if (p.sound_design.never_overpower_speech)
@@ -492,12 +534,13 @@ export function generateHumanPrompt(
         "Automatically duck the background music while the speaker is talking."
       );
     if (sfx.length)
-      blocks.push(`Create immersive cinematic sound design:\n${bullets(sfx)}`);
+      push(`Create immersive cinematic sound design:\n${bullets(sfx)}`);
   }
 
   // ---------- 8. Background music ----------
+  setSection("Music");
   if (p.background_music?.enabled) {
-    blocks.push(
+    push(
       p.background_music.description
         ? `Background music:\nUse ${p.background_music.description}.`
         : `Background music:\nUse ${joinNatural(p.background_music.style)} music, kept subtle beneath the narration.`
@@ -505,15 +548,17 @@ export function generateHumanPrompt(
   }
 
   // ---------- 9. Pacing ----------
+  setSection("Pacing");
   const interval = p.editing.target_visual_change_interval_seconds;
   const pacingWord = PACING_PHRASES[p.editing.pacing] ?? p.editing.pacing;
-  blocks.push(
+  push(
     interval
       ? `Maintain ${pacingWord} pacing with meaningful visual changes every ${interval[0]}–${interval[1]} seconds to maximize audience retention while keeping the edit clean, elegant, and professional.`
       : `Maintain ${pacingWord} pacing while keeping the edit clean, elegant, and professional.`
   );
 
   // ---------- 10. Timeline directions ----------
+  setSection("Timeline");
   if (includeTimeline && p.timeline.length) {
     const lines = p.timeline.map((e) => {
       const what =
@@ -522,18 +567,20 @@ export function generateHumanPrompt(
           : `${e.type.replace(/_/g, " ")}${e.action ? ` (${e.action.replace(/_/g, " ")})` : ""}`;
       return `${e.start.toFixed(1)}s–${e.end.toFixed(1)}s: ${what}${e.reason ? ` — ${e.reason}` : ""}`;
     });
-    blocks.push(`Timeline directions:\n${bullets(lines)}`);
+    push(`Timeline directions:\n${bullets(lines)}`);
   }
 
   // ---------- 11. Negative constraints ----------
+  setSection("Constraints");
   const negatives = (Object.keys(p.constraints) as ConstraintKey[])
     .filter((k) => p.constraints[k] && !covered.has(k))
     .map((k) => CONSTRAINT_PHRASES[k])
     .filter(Boolean);
   if (negatives.length)
-    blocks.push(`Negative Constraints:\n${bullets([...new Set(negatives)])}`);
+    push(`Negative Constraints:\n${bullets([...new Set(negatives)])}`);
 
   // ---------- 12. Final output statement ----------
+  setSection("Output");
   const platforms = p.output.platform_targets
     .map((t) => PLATFORM_PHRASES[t])
     .filter(Boolean);
@@ -549,22 +596,23 @@ export function generateHumanPrompt(
     `professional ${p.visual_direction.style} editing with maximum viewer retention`
   );
 
-  blocks.push(
+  push(
     `Final output should look like a ${quality} ${joinNatural(platforms, "or")} edited by a world-class creative agency, featuring ${joinNatural(finalFeatures)}.`
   );
   if (p.output.aspect_ratio) {
     const vertical = p.output.aspect_ratio === "9:16" ? " vertical" : "";
-    blocks.push(`Final aspect ratio: ${p.output.aspect_ratio}${vertical}.`);
+    push(`Final aspect ratio: ${p.output.aspect_ratio}${vertical}.`);
   }
 
   // ---------- 13. Locked transcript, last ----------
+  setSection("Locked transcript");
   // Closing the prompt with the spoken lines keeps them adjacent to where the
   // model starts writing, instead of buried behind the styling instructions.
   if (p.transcript.source !== "none" && p.transcript.text.trim()) {
     // Phrased as the dialogue to be delivered, rather than as an instruction
     // to analyse the speaker's recorded voice — the requirement is identical
     // and this wording is what practitioners report getting accepted.
-    blocks.push(
+    push(
       [
         `The speaker says the following dialogue exactly once:`,
         ``,
@@ -582,5 +630,27 @@ export function generateHumanPrompt(
     );
   }
 
-  return blocks.join("\n\n");
+  return {
+    text: blocks.join("\n\n"),
+    sections: groupSections(blocks, blockSections),
+  };
+}
+
+/** The prompt exactly as it should be pasted into a video model. */
+export function generateHumanPrompt(
+  p: UniversalVideoProject,
+  options: PromptOptions = {}
+): string {
+  return buildPrompt(p, options).text;
+}
+
+/**
+ * The same prompt, split into headed groups for on-screen reading. The bodies
+ * concatenate back to the exact text above — the headings are never sent.
+ */
+export function generateHumanPromptSections(
+  p: UniversalVideoProject,
+  options: PromptOptions = {}
+): PromptSection[] {
+  return buildPrompt(p, options).sections;
 }

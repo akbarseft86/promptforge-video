@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useProjectStore } from "../stores/project";
 import { UniversalVideoProject } from "../schemas/universal";
-import { generateHumanPrompt, PromptOptions } from "../services/humanPrompt";
+import {
+  generateHumanPrompt,
+  generateHumanPromptSections,
+  PromptOptions,
+} from "../services/humanPrompt";
 import { ADAPTERS } from "../adapters";
 import { copyToClipboard } from "../utils/clipboard";
 import {
@@ -10,6 +14,7 @@ import {
 } from "../features/presets/environments";
 import { STYLE_OPTIONS, STYLE_VALUES } from "../features/presets/styles";
 import { fixFor, safeFixes } from "../features/validator/autofix";
+import { useLang } from "../i18n";
 
 type Tab = "visual" | "json" | "validate" | "export";
 
@@ -69,6 +74,8 @@ export default function EditorPanel() {
   const [promptOpts, setPromptOpts] = useState<PromptOptions>({});
   const [copyFailed, setCopyFailed] = useState<string | null>(null);
   const [fixNote, setFixNote] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(true);
+  const { t } = useLang();
   const safeFixCount =
     p && s.validation ? safeFixes(s.validation, p).length : 0;
   const copy = async (text: string, key: string) => {
@@ -102,10 +109,10 @@ export default function EditorPanel() {
     });
 
   const tabs: [Tab, string][] = [
-    ["visual", "Visual Controls"],
-    ["json", "Raw JSON"],
-    ["validate", "Validation"],
-    ["export", "Export"],
+    ["visual", t("tab.visual", "Visual Controls")],
+    ["json", t("tab.json", "Raw JSON")],
+    ["validate", t("tab.validate", "Validation")],
+    ["export", t("tab.export", "Export")],
   ];
 
   return (
@@ -135,7 +142,7 @@ export default function EditorPanel() {
 
       {!p && (
         <p className="text-xs text-zinc-600 py-8 text-center">
-          Generate a project to review and edit the Universal JSON here.
+          {t("editor.empty", "Generate a project to review and edit the Universal JSON here.")}
         </p>
       )}
 
@@ -503,7 +510,7 @@ export default function EditorPanel() {
         <div className="space-y-2 overflow-y-auto">
           <div className="flex items-center gap-2 flex-wrap">
             <button className="btn-primary" onClick={() => s.runValidation()}>
-              ✓ Validate JSON
+              {t("validate.run", "✓ Validate JSON")}
             </button>
             {safeFixCount > 0 && (
               <button
@@ -593,17 +600,50 @@ export default function EditorPanel() {
               className="btn-primary text-xs"
               onClick={() => copy(JSON.stringify(p, null, 2), "json")}
             >
-              {copied === "json" ? "✓ Copied" : "Copy Universal JSON"}
+              {copied === "json" ? t("export.copied", "✓ Copied") : t("export.copyJson", "Copy Universal JSON")}
             </button>
             <button className="btn-ghost text-xs" onClick={download}>
-              Download .json
+              {t("export.download", "Download .json")}
             </button>
             <button
               className="btn-ghost text-xs"
               onClick={() => copy(generateHumanPrompt(p, promptOpts), "human")}
             >
-              {copied === "human" ? "✓ Copied" : "Copy Human Prompt"}
+              {copied === "human" ? t("export.copied", "✓ Copied") : t("export.copyPrompt", "Copy Human Prompt")}
             </button>
+          </div>
+
+          {/* Read before you paste. The headings are added here only — the
+              copied text is the plain prompt, unchanged. */}
+          <div className="rounded-lg border border-line bg-panel2/40 overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-300 hover:text-white"
+              onClick={() => setShowPreview(!showPreview)}
+              aria-expanded={showPreview}
+            >
+              <span>{t("preview.title", "👁 Prompt preview — read it before you copy")}</span>
+              <span className="text-zinc-600">{showPreview ? "−" : "+"}</span>
+            </button>
+            {showPreview && (
+              <div className="px-3 pb-3 space-y-3 max-h-[420px] overflow-y-auto">
+                <p className="text-[11px] text-zinc-600">
+                  {t(
+                    "preview.note",
+                    "Headings are labels for reading only — they are not part of the prompt you copy."
+                  )}
+                </p>
+                {generateHumanPromptSections(p, promptOpts).map((sec, i) => (
+                  <div key={i}>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-primary mb-1">
+                      {sec.title}
+                    </p>
+                    <p className="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                      {sec.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

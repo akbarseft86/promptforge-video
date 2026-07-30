@@ -1,6 +1,6 @@
 import { generateUniversalProject } from "../src/services/generation";
 import { validateProject, compareTranscriptTokens } from "../src/features/validator/validate";
-import { generateHumanPrompt } from "../src/services/humanPrompt";
+import { generateHumanPrompt, generateHumanPromptSections } from "../src/services/humanPrompt";
 import { ADAPTERS } from "../src/adapters";
 import { BUILTIN_PRESETS } from "../src/features/presets/presets";
 import { applyOverrides } from "../src/stores/project";
@@ -698,6 +698,38 @@ assert(
   assert(
     generateHumanPrompt(scene2).includes(characterSheet(maya)),
     "a different scene carries the same sheet unchanged"
+  );
+}
+
+// ──────── prompt preview ────────
+{
+  // The preview is presentation only. If the bodies ever stop reassembling
+  // into the exact prompt, users would be reading something other than what
+  // they paste — the one failure this feature must not have.
+  for (const proj of [project, noTranscript]) {
+    const sections = generateHumanPromptSections(proj);
+    assert(sections.length > 0, "the preview produces sections");
+    assert(
+      sections.map((s) => s.body).join("\n\n") === generateHumanPrompt(proj),
+      "preview bodies reassemble into the exact prompt"
+    );
+    assert(
+      sections.every((s) => s.title.trim().length > 0),
+      "every preview section carries a heading"
+    );
+    // Consecutive blocks from one section are merged, so a heading never
+    // repeats back-to-back and the preview stays scannable.
+    assert(
+      sections.every((s, i) => i === 0 || sections[i - 1].title !== s.title),
+      "no heading repeats consecutively"
+    );
+  }
+
+  const headed = generateHumanPromptSections(project).map((s) => s.title);
+  assert(headed[0] === "Overview", "the preview opens with Overview");
+  assert(
+    headed.includes("Preservation") && headed.includes("Constraints"),
+    "known sections are labelled"
   );
 }
 
